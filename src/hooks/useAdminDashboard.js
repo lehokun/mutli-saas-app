@@ -16,40 +16,37 @@ export function useAdminDashboard() {
   const [admin, setAdmin] = useState(null);
   const [branches, setBranches] = useState([]);
   const [stocks, setStocks] = useState([]);
-  const [groupedExpenses, setGroupedExpenses] = useState({});
-  const [groupedSalesHistory, setGroupedSalesHistory] = useState({});
   
-  // Filter States
-  const [filterBranchId, setFilterBranchId] = useState('');
-  const [filterTimeframe, setFilterTimeframe] = useState('all');
+  // 🔥 MENGGUNAKAN RAW STATE UNTUK DATA MENTAH DARI DATABASE
+  const [groupedExpensesRaw, setGroupedExpensesRaw] = useState({});
+  const [groupedSalesHistoryRaw, setGroupedSalesHistoryRaw] = useState({});
+  
+  // Filter States (Default ke 'ALL')
+  const [filterBranchId, setFilterBranchId] = useState('ALL');
+  const [filterTimeframe, setFilterTimeframe] = useState('ALL');
 
-  // Forms States - Kelola Cabang
+  // Forms States
   const [branchName, setBranchName] = useState('');
   const [generatedToken, setGeneratedToken] = useState('');
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editingBranchName, setEditingBranchName] = useState('');
 
-  // Forms States - Tambah Produk Baru
   const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [hpp, setHpp] = useState('');
   const [hargaJual, setHargaJual] = useState('');
-  const [expiredDate, setExpiredDate] = useState(''); // 🔥 PERBAIKAN: State ini yang kurang sebelumnya
+  const [expiredDate, setExpiredDate] = useState('');
 
-  // Forms States - Tambah Stok Pusat
   const [selectedExistingStockId, setSelectedExistingStockId] = useState('');
   const [additionalStockQty, setAdditionalStockQty] = useState('');
 
-  // Forms States - Distribusi Cabang
   const [selectedStockId, setSelectedStockId] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [transferQty, setTransferQty] = useState('');
 
-  // Forms States - Rekap Tutup Buku
   const [closingStockId, setClosingStockId] = useState('');
   const [closingSoldQty, setClosingSoldQty] = useState('');
 
-  // Profile & Settings States
   const [profileName, setProfileName] = useState('');
   const [profileAddress, setProfileAddress] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -74,26 +71,23 @@ export function useAdminDashboard() {
       setBranches(branchesData);
       setStocks(stocksData);
 
-      // Group Expenses by Date
       const expGrouped = expensesData.reduce((acc, exp) => {
         const date = new Date(exp.created_at).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         if (!acc[date]) acc[date] = [];
         acc[date].push(exp);
         return acc;
       }, {});
-      setGroupedExpenses(expGrouped);
+      setGroupedExpensesRaw(expGrouped);
 
-      // Group Sales History by Date
       const salesGrouped = salesData.reduce((acc, log) => {
         const date = new Date(log.created_at).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         if (!acc[date]) acc[date] = [];
         acc[date].push(log);
         return acc;
       }, {});
-      setGroupedSalesHistory(salesGrouped);
+      setGroupedSalesHistoryRaw(salesGrouped);
 
     } catch (error) {
-      console.error("Gagal memuat data:", error);
       if (error.message.includes('JWT')) router.push('/login');
     } finally {
       setLoading(false);
@@ -110,45 +104,62 @@ export function useAdminDashboard() {
   };
   const getUserDisplayName = () => admin?.user_metadata?.business_name || admin?.user_metadata?.name || admin?.email || "Administrator";
 
-  // Data Filtering (Memoized for performance)
+  // 🔥 PERBAIKAN LOGIKA FILTER (Waktu & Cabang)
+  const isBranchMatch = (itemBranchId, filterId) => {
+    return !filterId || filterId === 'ALL' || itemBranchId === filterId;
+  };
+
   const isWithinTimeframe = (dateString, timeframe) => {
-    if (timeframe === 'all') return true;
+    if (!timeframe) return true;
+    const tf = timeframe.toUpperCase();
+    if (tf === 'ALL') return true;
     const date = new Date(dateString);
     const now = new Date();
-    if (timeframe === 'today') return date.toDateString() === now.toDateString();
-    if (timeframe === 'week') {
+    if (tf === 'TODAY') return date.toDateString() === now.toDateString();
+    if (tf === 'WEEK') {
       const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return date >= lastWeek;
     }
-    if (timeframe === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    if (tf === 'MONTH') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     return true;
   };
 
-  const filteredStocks = useMemo(() => stocks.filter(s => filterBranchId ? s.branch_id === filterBranchId : true), [stocks, filterBranchId]);
+  // 1. Ekstrak & Filter Data Mentah Menjadi Flat Array
+  const filteredStocks = useMemo(() => stocks.filter(s => isBranchMatch(s.branch_id, filterBranchId)), [stocks, filterBranchId]);
   
   const filteredSalesHistoryFlat = useMemo(() => {
-    const flatSales = Object.values(groupedSalesHistory).flat();
-    return flatSales.filter(s => {
-      const matchBranch = filterBranchId ? s.branch_id === filterBranchId : true;
-      const matchTime = isWithinTimeframe(s.created_at, filterTimeframe);
-      return matchBranch && matchTime;
-    });
-  }, [groupedSalesHistory, filterBranchId, filterTimeframe]);
+    const flatSales = Object.values(groupedSalesHistoryRaw).flat();
+    return flatSales.filter(s => isBranchMatch(s.branch_id, filterBranchId) && isWithinTimeframe(s.created_at, filterTimeframe));
+  }, [groupedSalesHistoryRaw, filterBranchId, filterTimeframe]);
 
-  const filteredExpenses = useMemo(() => {
-    const flatExp = Object.values(groupedExpenses).flat();
-    return flatExp.filter(e => {
-      const matchBranch = filterBranchId ? e.branch_id === filterBranchId : true;
-      const matchTime = isWithinTimeframe(e.created_at, filterTimeframe);
-      return matchBranch && matchTime;
-    });
-  }, [groupedExpenses, filterBranchId, filterTimeframe]);
+  const filteredExpensesFlat = useMemo(() => {
+    const flatExp = Object.values(groupedExpensesRaw).flat();
+    return flatExp.filter(e => isBranchMatch(e.branch_id, filterBranchId) && isWithinTimeframe(e.created_at, filterTimeframe));
+  }, [groupedExpensesRaw, filterBranchId, filterTimeframe]);
 
-  // Calculations
+  // 2. Grouping Ulang Data yang Sudah Bersih (Untuk UI Tutup Buku & Expenses)
+  const groupedSalesHistory = useMemo(() => {
+    return filteredSalesHistoryFlat.reduce((acc, log) => {
+      const date = new Date(log.created_at).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(log);
+      return acc;
+    }, {});
+  }, [filteredSalesHistoryFlat]);
+
+  const groupedExpenses = useMemo(() => {
+    return filteredExpensesFlat.reduce((acc, exp) => {
+      const date = new Date(exp.created_at).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(exp);
+      return acc;
+    }, {});
+  }, [filteredExpensesFlat]);
+
+  // 3. Kalkulasi Metrik (Sudah Terfilter Akurat)
   const totalOmset = filteredSalesHistoryFlat.reduce((sum, log) => sum + log.total_price, 0);
-  const totalPengeluaran = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalPengeluaran = filteredExpensesFlat.reduce((sum, exp) => sum + exp.amount, 0);
   
-  // 🔥 PERBAIKAN: Hitung Kerugian Expired di dalam Hook
   const hariIni = new Date();
   const totalKerugianExpired = filteredStocks.reduce((acc, item) => {
     if (item.expired_at && new Date(item.expired_at) < hariIni && item.quantity > 0) {
@@ -157,10 +168,9 @@ export function useAdminDashboard() {
     return acc;
   }, 0);
 
-  // Kurangi laba bersih dengan total pengeluaran dan kerugian expired
   const labaBersih = totalOmset - filteredSalesHistoryFlat.reduce((sum, log) => sum + log.total_hpp, 0) - totalPengeluaran - totalKerugianExpired;
 
-  // Chart Data Preparation (7 Days)
+  // Chart Data (Tetap menahan 7 hari struktur aslinya, namun difilter per-cabang)
   const chartData = useMemo(() => {
     const data = [];
     for (let i = 6; i >= 0; i--) {
@@ -170,18 +180,16 @@ export function useAdminDashboard() {
       const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
       
       let dailyOmset = 0;
-      if (groupedSalesHistory[dateStr]) {
-        dailyOmset = groupedSalesHistory[dateStr].reduce((sum, log) => {
-          if (!filterBranchId || log.branch_id === filterBranchId) return sum + log.total_price;
+      if (groupedSalesHistoryRaw[dateStr]) {
+        dailyOmset = groupedSalesHistoryRaw[dateStr].reduce((sum, log) => {
+          if (isBranchMatch(log.branch_id, filterBranchId)) return sum + log.total_price;
           return sum;
         }, 0);
       }
       data.push({ day: dayName, dateStr, omset: dailyOmset });
     }
     return data;
-  }, [groupedSalesHistory, filterBranchId]);
-  
-  const maxChartOmset = Math.max(...chartData.map(d => d.omset), 100000);
+  }, [groupedSalesHistoryRaw, filterBranchId]);
 
   // --- Handlers: Branch Management ---
   const handleAddBranch = async (e) => {
@@ -189,109 +197,65 @@ export function useAdminDashboard() {
     if (!branchName.trim()) return alert("Nama cabang tidak boleh kosong!");
     const tokenBaru = Math.random().toString(36).substring(2, 10).toUpperCase();
     try {
-      await adminService.addBranch(branchName, admin.id, tokenBaru);
+      const newBranch = await adminService.addBranch(branchName, admin.id, tokenBaru);
       setGeneratedToken(tokenBaru);
       setBranchName('');
-      loadDashboardData();
+      setBranches(prev => [...prev, newBranch]);
     } catch (error) { alert("Gagal menambah cabang: " + error.message); }
   };
 
   const handleUpdateBranch = async (id) => {
     if (!editingBranchName.trim()) return alert("Nama tidak boleh kosong!");
-    const namaLama = branches.find(b => b.id === id)?.name;
-    
     try {
-      // Optimistic Update: Ubah di layar saat itu juga
+      await adminService.updateBranch(id, { name: editingBranchName });
       setBranches(prev => prev.map(b => b.id === id ? { ...b, name: editingBranchName } : b));
       setEditingBranchId(null);
-      
-      await adminService.updateBranch(id, { name: editingBranchName });
-    } catch (error) { 
-      // Rollback: Kembalikan nama lama jika database error
-      setBranches(prev => prev.map(b => b.id === id ? { ...b, name: namaLama } : b));
-      alert("Gagal mengupdate cabang: " + error.message); 
-    }
+    } catch (error) { alert("Gagal mengupdate cabang: " + error.message); }
   };
 
   const handleDeleteBranch = async (id) => {
-    if (!window.confirm("Yakin hapus cabang ini? Seluruh data yang terkait akan terhapus secara permanen.")) return;
+    if (!window.confirm("Yakin hapus cabang ini? Seluruh data terkait akan terhapus permanen.")) return;
     try {
       await adminService.deleteBranch(id);
-      loadDashboardData();
+      setBranches(prev => prev.filter(b => b.id !== id));
     } catch (error) { alert("Gagal menghapus cabang: " + error.message); }
   };
 
   const handleToggleBranchStatus = async (id, currentStatus) => {
     try {
-      // Optimistic Update: Ubah layar saat itu juga
-      setBranches(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b));
-      
       await adminService.updateBranch(id, { is_active: !currentStatus });
-    } catch (error) { 
-      // Rollback
-      setBranches(prev => prev.map(b => b.id === id ? { ...b, is_active: currentStatus } : b));
-      alert("Gagal merubah status cabang: " + error.message); 
-    }
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b));
+    } catch (error) { alert("Gagal merubah status cabang: " + error.message); }
   };
 
   const handleRegenerateToken = async (id) => {
-    if (!window.confirm("Yakin ingin mengganti token? Token lama tidak bisa dipakai lagi oleh karyawan cabang.")) return;
+    if (!window.confirm("Yakin ingin mengganti token? Staf cabang akan langsung ter-logout (keluar otomatis).")) return;
     const tokenBaru = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const tokenLama = branches.find(b => b.id === id)?.token;
-    
     try {
-      // Optimistic Update: Paksa token di layar berganti instan sebelum alert muncul
-      setBranches(prev => prev.map(b => b.id === id ? { ...b, token: tokenBaru } : b));
-      
       await adminService.updateBranch(id, { token: tokenBaru });
-      
-      // Delay alert sedikit agar UI React punya waktu untuk berubah bentuk di layar
-      setTimeout(() => alert(`Token Baru: ${tokenBaru}\n\nSilakan berikan ke karyawan Anda.`), 100);
-      
-    } catch (error) { 
-      // Rollback ke token lama jika database RLS menolak update
-      setBranches(prev => prev.map(b => b.id === id ? { ...b, token: tokenLama } : b));
-      alert("Gagal membuat token baru: " + error.message); 
-    }
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, token: tokenBaru } : b));
+      alert(`Token Baru: ${tokenBaru}\n\nSilakan berikan ke karyawan Anda.`);
+    } catch (error) { alert("Gagal membuat token baru: " + error.message); }
   };
 
-  // --- Handlers: Stock Management ---
+  // --- Handlers: Stock & Report ---
   const handleAddStock = async (e) => {
     e.preventDefault();
     try {
-      // 🔥 PERBAIKAN: Menyertakan parameter expiredDate ke fungsi adminService (jika adminService mensupportnya, kita modifikasi manual query-nya disini sementara untuk amannya)
       const cleanName = itemName.trim();
       const qty = parseInt(quantity);
       const cost = parseInt(hpp);
       const price = parseInt(hargaJual);
 
-      if (!cleanName || isNaN(qty) || isNaN(cost) || isNaN(price)) {
-        throw new Error("Data tidak valid: Pastikan nama dan angka diisi benar.");
-      }
+      if (!cleanName || isNaN(qty) || isNaN(cost) || isNaN(price)) throw new Error("Data tidak valid!");
 
-      const { data: existingProduct, error: checkError } = await supabase
-        .from('stocks')
-        .select('id')
-        .ilike('item_name', cleanName) 
-        .is('branch_id', null)
-        .eq('admin_id', admin.id)
-        .maybeSingle();
-
+      const { data: existingProduct, error: checkError } = await supabase.from('stocks').select('id').ilike('item_name', cleanName).is('branch_id', null).eq('admin_id', admin.id).maybeSingle();
       if (checkError) throw checkError;
-      if (existingProduct) {
-        throw new Error("Produk sudah ada di Gudang Pusat! Gunakan menu 'Tambah Stok Barang Jadi'.");
-      }
+      if (existingProduct) throw new Error("Produk sudah ada di Gudang Pusat! Gunakan menu 'Tambah Stok Barang Jadi'.");
 
       const { error } = await supabase.from('stocks').insert({
-        item_name: cleanName,
-        quantity: qty,
-        hpp: cost,
-        harga_jual: price,
-        admin_id: admin.id,
-        branch_id: null,
-        expired_at: expiredDate || null // Menambahkan tanggal expired ke DB
+        item_name: cleanName, quantity: qty, hpp: cost, harga_jual: price, admin_id: admin.id, branch_id: null, expired_at: expiredDate || null
       });
-      
       if (error) throw error;
       
       alert("Produk berhasil didaftarkan!");
@@ -316,7 +280,6 @@ export function useAdminDashboard() {
     e.preventDefault();
     const qty = parseInt(transferQty);
     if (!selectedStockId || !selectedBranchId || isNaN(qty) || qty <= 0) return alert("Isi form dengan benar!");
-    
     const targetStock = stocks.find(s => s.id.toString() === selectedStockId);
     if (qty > targetStock.quantity) return alert("Sisa stok pusat tidak cukup!");
     
@@ -339,23 +302,21 @@ export function useAdminDashboard() {
 
     try {
       const { calculatedRemainingQty, calculatedSoldQty } = await adminService.executeClosingReport(targetStock, soldQty);
-      
       const updatedStocks = stocks.map(s => s.id.toString() === closingStockId ? { ...s, quantity: calculatedRemainingQty, sold_quantity: calculatedSoldQty } : s);
       setStocks(updatedStocks);
       
       const todayStr = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       const newLog = {
         id: Date.now(), branch_id: targetStock.branch_id, item_name: targetStock.item_name,
-        quantity_sold: soldQty, total_price: soldQty * targetStock.harga_jual,
-        created_at: new Date().toISOString()
+        quantity_sold: soldQty, total_price: soldQty * targetStock.harga_jual, created_at: new Date().toISOString()
       };
       
-      const updatedHistory = { ...groupedSalesHistory };
+      const updatedHistory = { ...groupedSalesHistoryRaw };
       if (!updatedHistory[todayStr]) updatedHistory[todayStr] = [];
       updatedHistory[todayStr] = [newLog, ...updatedHistory[todayStr]];
       
       setClosingStockId(''); setClosingSoldQty('');
-      setGroupedSalesHistory(updatedHistory);
+      setGroupedSalesHistoryRaw(updatedHistory);
       alert('Tutup buku harian sukses!');
     } catch (err) { alert("Gagal: " + err.message); }
   };
@@ -364,9 +325,7 @@ export function useAdminDashboard() {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { business_name: profileName, address: profileAddress }
-      });
+      const { error } = await supabase.auth.updateUser({ data: { business_name: profileName, address: profileAddress } });
       if (error) throw error;
       alert('Profil berhasil diperbarui!');
     } catch (err) { alert('Gagal memperbarui profil: ' + err.message); }
@@ -392,21 +351,18 @@ export function useAdminDashboard() {
     darkMode, setDarkMode, isSidebarOpen, setIsSidebarOpen, currentMenu, setCurrentMenu, loading,
     admin, branches, stocks, filterBranchId, setFilterBranchId, filterTimeframe, setFilterTimeframe,
     filteredStocks, totalOmset, totalPengeluaran, labaBersih, chartData, maxChartOmset, router,
-    groupedExpenses, groupedSalesHistory, formatRupiah, getUserInitials, getUserDisplayName,
+    // Ekspor Data yang Sudah di-Filter Penuh ke MenuViews.jsx
+    groupedExpenses, groupedSalesHistory, filteredExpenses: filteredExpensesFlat,
+    formatRupiah, getUserInitials, getUserDisplayName,
     branchName, setBranchName, generatedToken, itemName, setItemName, quantity, setQuantity,
     hpp, setHpp, hargaJual, setHargaJual, selectedExistingStockId, setSelectedExistingStockId,
     additionalStockQty, setAdditionalStockQty, selectedStockId, setSelectedStockId,
     selectedBranchId, setSelectedBranchId, transferQty, setTransferQty, closingStockId,
-    setClosingStockId, closingSoldQty, setClosingSoldQty, filteredExpenses,
-    editingBranchId, setEditingBranchId, editingBranchName, setEditingBranchName,
-    profileName, setProfileName, profileAddress, setProfileAddress, newPassword, setNewPassword,
+    setClosingStockId, closingSoldQty, setClosingSoldQty, editingBranchId, setEditingBranchId, 
+    editingBranchName, setEditingBranchName, profileName, setProfileName, profileAddress, setProfileAddress, 
+    newPassword, setNewPassword, expiredDate, setExpiredDate, totalKerugianExpired,
     handleAddBranch, handleDeleteBranch, handleUpdateBranch, handleToggleBranchStatus, handleRegenerateToken,
     handleAddStock, handleAddExistingStock, handleTransferStock, handleClosingReport, handleLogout,
-    handleUpdateProfile, handleChangePassword,
-    
-    // 🔥 State Expired Date telah ditambahkan agar dapat dikenali oleh form di MenuViews.jsx
-    expiredDate, 
-    setExpiredDate,
-    totalKerugianExpired
+    handleUpdateProfile, handleChangePassword
   };
 }
