@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-// Reusable Form Input (Dioptimalkan kontrasnya)
+// Reusable Form Input (Dioptimalkan kontrasnya untuk mode terang)
 const FormInput = ({ type, placeholder, value, onChange, required = true, darkMode }) => (
   <input 
     type={type} 
@@ -18,9 +18,21 @@ const FormInput = ({ type, placeholder, value, onChange, required = true, darkMo
   />
 );
 
-// --- 1. HOME VIEW (DASHBOARD UTAMA) ---
+// --- 1. HOME VIEW (DASHBOARD UTAMA DENGAN WARNA KONTRAS TINGGI & FITUR EXPIRED) ---
 export function HomeView(props) {
   const { darkMode, totalOmset, labaBersih, totalPengeluaran, chartData, maxChartOmset, formatRupiah, stocks, branches, filteredStocks } = props;
+
+  // Hitung akumulasi kerugian barang expired dari data yang terfilter saat ini
+  const hariIni = new Date();
+  const totalKerugianExpired = filteredStocks.reduce((acc, item) => {
+    if (item.expired_at && new Date(item.expired_at) < hariIni && item.quantity > 0) {
+      return acc + (item.quantity * item.hpp);
+    }
+    return acc;
+  }, 0);
+
+  // Sesuaikan nilai laba bersih setelah dikurangi kerugian produk expired
+  const labaDisesuaikan = labaBersih - totalKerugianExpired;
 
   const cardStyle = `relative overflow-hidden p-5 sm:p-6 rounded-2xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
     darkMode ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-200 shadow-sm'
@@ -28,98 +40,100 @@ export function HomeView(props) {
 
   return (
     <div className="space-y-6">
-      {/* Grid Kartu Metrik & Grafik */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-        
-        {/* Kartu Finansial */}
-        <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          {/* Card: Omset */}
-          <div className={cardStyle}>
-            <div className="flex items-start justify-between">
-              <div className="z-10 relative">
-                <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Omset Terfilter</p>
-                <h4 className={`text-2xl sm:text-3xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>{formatRupiah(totalOmset)}</h4>
-              </div>
-              <div className={`p-3 rounded-xl shrink-0 ${darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
+      {/* Grid Kartu Metrik */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Card: Omset */}
+        <div className={cardStyle}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Omset Terfilter</p>
+              <h4 className={`text-xl sm:text-2xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>{formatRupiah(totalOmset)}</h4>
             </div>
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none"></div>
-          </div>
-
-          {/* Card: Laba Bersih */}
-          <div className={cardStyle}>
-            <div className="flex items-start justify-between">
-              <div className="z-10 relative">
-                <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Laba Bersih</p>
-                <h4 className={`text-2xl sm:text-3xl font-black tracking-tight ${labaBersih >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatRupiah(labaBersih)}</h4>
-              </div>
-              <div className={`p-3 rounded-xl shrink-0 ${darkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-              </div>
+            <div className={`p-2.5 rounded-xl shrink-0 ${darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
           </div>
-
-          {/* Card: Pengeluaran */}
-          <div className={cardStyle}>
-            <div className="flex items-start justify-between">
-              <div className="z-10 relative">
-                <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Pengeluaran</p>
-                <h4 className={`text-2xl sm:text-3xl font-black tracking-tight text-rose-600`}>{formatRupiah(totalPengeluaran)}</h4>
-              </div>
-              <div className={`p-3 rounded-xl shrink-0 ${darkMode ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" /></svg>
-              </div>
-            </div>
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none"></div>
-          </div>
+          <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none"></div>
         </div>
 
-        {/* Kartu Grafik Samping */}
-        <div className={`lg:col-span-4 p-5 sm:p-6 rounded-2xl border flex flex-col justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className={`font-extrabold text-xs uppercase tracking-widest ${darkMode ? 'text-slate-300' : 'text-slate-900'}`}>Tren Omset (7 Hari)</h3>
-            <span className="text-xl">📈</span>
+        {/* Card: Laba Bersih */}
+        <div className={cardStyle}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Laba Bersih Efektif</p>
+              <h4 className={`text-xl sm:text-2xl font-black tracking-tight ${labaDisesuaikan >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatRupiah(labaDisesuaikan)}</h4>
+            </div>
+            <div className={`p-2.5 rounded-xl shrink-0 ${darkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+            </div>
           </div>
-          <div className="flex items-end justify-between h-24 gap-1 sm:gap-2">
-            {chartData.map((data, index) => (
-              <div key={index} className="flex flex-col items-center flex-1 group relative h-full justify-end cursor-pointer">
-                <div className="absolute -top-10 bg-slate-800 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-20">
-                  {formatRupiah(data.omset)}
-                </div>
-                <div className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-md group-hover:from-blue-500 group-hover:to-blue-300 transition-all duration-300" style={{ height: `${(data.omset / maxChartOmset) * 100}%`, minHeight: '8px' }}></div>
-                <span className={`text-[9px] sm:text-[10px] mt-2 font-bold uppercase ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>{data.day}</span>
-              </div>
-            ))}
+          <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        </div>
+
+        {/* Card: Pengeluaran Ops */}
+        <div className={cardStyle}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Pengeluaran Ops</p>
+              <h4 className="text-xl sm:text-2xl font-black tracking-tight text-rose-700">{formatRupiah(totalPengeluaran)}</h4>
+            </div>
+            <div className={`p-2.5 rounded-xl shrink-0 ${darkMode ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" /></svg>
+            </div>
+          </div>
+          <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        </div>
+
+        {/* Card Baru: Kerugian Barang Expired */}
+        <div className={`${cardStyle} ${totalKerugianExpired > 0 ? 'border-red-300 bg-red-50/30' : ''}`}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${totalKerugianExpired > 0 ? 'text-red-800' : 'text-slate-700'}`}>Kerugian Expired</p>
+              <h4 className={`text-xl sm:text-2xl font-black tracking-tight ${totalKerugianExpired > 0 ? 'text-red-700 animate-pulse' : 'text-slate-900'}`}>{formatRupiah(totalKerugianExpired)}</h4>
+            </div>
+            <span className="text-xl">⚠️</span>
           </div>
         </div>
       </div>
 
-      {/* Kontrol Manajemen Logistik & Stok */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Form Registrasi Produk */}
+      {/* Kontrol Manajemen Tambah Produk */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        {/* Form Registrasi Produk Baru */}
         <div className={cardStyle}>
           <div className="flex items-center gap-3 mb-5">
-            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-transparent"><span className="text-lg">📦</span></div>
-            <h3 className={`font-extrabold text-sm tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>Daftarkan Produk</h3>
+            <span className="text-lg">📦</span>
+            <h3 className={`font-extrabold text-sm tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>Daftarkan Produk & Expired</h3>
           </div>
           <form onSubmit={props.handleAddStock} className="space-y-3">
             <FormInput darkMode={darkMode} type="text" placeholder="Nama Produk Baru" value={props.itemName} onChange={props.setItemName} />
             <div className="grid grid-cols-2 gap-3">
-              <FormInput darkMode={darkMode} type="number" placeholder="Stok Awal" value={props.quantity} onChange={props.setQuantity} />
+              <FormInput darkMode={darkMode} type="number" placeholder="Stok" value={props.quantity} onChange={props.setQuantity} />
               <FormInput darkMode={darkMode} type="number" placeholder="HPP (Rp)" value={props.hpp} onChange={props.setHpp} />
             </div>
             <FormInput darkMode={darkMode} type="number" placeholder="Harga Jual (Rp)" value={props.hargaJual} onChange={props.setHargaJual} />
-            <button className="w-full mt-2 bg-blue-600 text-white p-3 rounded-xl font-bold text-sm hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95">Simpan Produk Baru</button>
+            
+            {/* Input Tanggal Expired */}
+            <div>
+              <label className={`block text-[10px] font-bold uppercase mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Batas Tanggal Kedaluwarsa</label>
+              <input 
+                type="date" 
+                className={`w-full rounded-xl border p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  darkMode ? 'bg-slate-800/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900 shadow-sm'
+                }`}
+                value={props.expiredDate || ''} 
+                onChange={(e) => props.setExpiredDate(e.target.value)} 
+              />
+            </div>
+            
+            <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20">Simpan Produk</button>
           </form>
         </div>
 
         {/* Form Tambah Stok Pusat */}
         <div className={cardStyle}>
           <div className="flex items-center gap-3 mb-5">
-            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-transparent"><span className="text-lg">💎</span></div>
-            <h3 className="font-extrabold text-sm tracking-tight text-indigo-800 dark:text-indigo-400">Tambah Stok Jadi</h3>
+            <span className="text-lg">💎</span>
+            <h3 className={`font-extrabold text-sm tracking-tight ${darkMode ? 'text-indigo-400' : 'text-indigo-800'}`}>Tambah Stok Jadi</h3>
           </div>
           <form onSubmit={props.handleAddExistingStock} className="space-y-3 flex flex-col h-[calc(100%-3rem)] justify-between">
             <div className="space-y-3">
@@ -136,8 +150,8 @@ export function HomeView(props) {
         {/* Form Distribusi Cabang */}
         <div className={cardStyle}>
           <div className="flex items-center gap-3 mb-5">
-            <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-transparent"><span className="text-lg">🚚</span></div>
-            <h3 className="font-extrabold text-sm tracking-tight text-purple-800 dark:text-purple-400">Distribusi Cabang</h3>
+            <span className="text-lg">🚚</span>
+            <h3 className={`font-extrabold text-sm tracking-tight ${darkMode ? 'text-purple-400' : 'text-purple-800'}`}>Distribusi Cabang</h3>
           </div>
           <form onSubmit={props.handleTransferStock} className="space-y-3">
             <select required className={`w-full rounded-xl border p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 ${darkMode ? 'bg-slate-800/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900 shadow-sm'}`} value={props.selectedStockId} onChange={(e) => props.setSelectedStockId(e.target.value)}>
@@ -154,43 +168,49 @@ export function HomeView(props) {
         </div>
       </div>
 
-      {/* Tabel Aliran Inventori Aktif */}
-      <div className={`p-1 rounded-3xl border transition-all duration-300 hover:shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+      {/* Tabel Aliran Inventori dengan Deteksi Real-time Expired */}
+      <div className={`p-1 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
         <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800">
-          <h3 className={`font-extrabold text-base tracking-tight flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-            <span className="p-2 bg-blue-50 dark:bg-blue-500/20 text-blue-700 rounded-lg border border-blue-200 dark:border-transparent">📋</span> Active Inventory Stream
-          </h3>
+          <h3 className={`font-extrabold text-base ${darkMode ? 'text-white' : 'text-slate-900'}`}>📋 Active Inventory Stream</h3>
         </div>
         <div className="overflow-x-auto w-full pb-4">
-          <table className="w-full text-left border-collapse min-w-[600px]">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className={`text-xs font-black uppercase tracking-wider ${darkMode ? 'text-slate-400 border-b border-slate-800' : 'text-slate-800 bg-slate-100/50 border-b border-slate-300'}`}>
-                <th className="p-4 sm:px-6">Nama Produk</th>
-                <th className="p-4 sm:px-6">Lokasi / Cabang</th>
-                <th className="p-4 sm:px-6">Harga Jual</th>
-                <th className="p-4 sm:px-6 text-right">Sisa Stok</th>
+                <th className="p-4">Nama Produk</th>
+                <th className="p-4">Lokasi</th>
+                <th className="p-4">Masa Expired</th>
+                <th className="p-4">Status Kelayakan</th>
+                <th className="p-4 text-right">Sisa Stok</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
-              {filteredStocks.map((item) => (
-                <tr key={item.id} className={`transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/30 ${darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
-                  <td className={`p-4 sm:px-6 font-bold flex items-center gap-2 ${darkMode ? '' : 'text-slate-900'}`}>
-                    {item.item_name}
-                    {item.quantity === 0 ? (
-                      <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider animate-pulse border border-red-300">🚨 Habis</span>
-                    ) : item.quantity <= 5 ? (
-                      <span className="bg-rose-100 text-rose-800 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider animate-pulse border border-rose-300">⚠️ Tipis</span>
-                    ) : null}
-                  </td>
-                  <td className="p-4 sm:px-6">
-                    <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border ${item.branches?.name ? 'bg-indigo-50 border-indigo-300 text-indigo-800 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-400' : 'bg-slate-100 border-slate-300 text-slate-800 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'}`}>
-                      {item.branches?.name || '🏢 Gudang Pusat'}
-                    </span>
-                  </td>
-                  <td className="p-4 sm:px-6 font-mono font-bold text-indigo-700 dark:text-indigo-400">{formatRupiah(item.harga_jual)}</td>
-                  <td className="p-4 sm:px-6 text-right font-black text-blue-700 dark:text-blue-400 text-base">{item.quantity} <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Pcs</span></td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50 text-sm">
+              {filteredStocks.map((item) => {
+                let statusBadge = <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md text-[11px] font-bold border border-emerald-300">Aman / Layak</span>;
+                
+                if (item.expired_at) {
+                  const sisaHari = Math.ceil((new Date(item.expired_at) - hariIni) / (1000 * 60 * 60 * 24));
+                  
+                  if (sisaHari <= 0) {
+                    statusBadge = <span className="bg-red-100 text-red-800 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider border border-red-300">💀 Kedaluwarsa (Rugi)</span>;
+                  } else if (sisaHari <= 7) {
+                    // MEMPERBAIKI ESCAPING KARAKTER < UNTUK REACT COMPILATION
+                    statusBadge = <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-[11px] font-bold border border-amber-300">⚠️ &lt; 7 Hari Lagi</span>;
+                  }
+                }
+
+                return (
+                  <tr key={item.id} className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/20 ${darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
+                    <td className={`p-4 font-bold ${darkMode ? 'text-slate-200' : 'text-slate-900'}`}>{item.item_name}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-800'}`}>{item.branches?.name || '🏢 Pusat'}</span>
+                    </td>
+                    <td className="p-4 font-mono font-bold">{item.expired_at ? new Date(item.expired_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : 'Tanpa Expired'}</td>
+                    <td className="p-4">{statusBadge}</td>
+                    <td className={`p-4 text-right font-black text-base ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>{item.quantity} <span className="text-xs font-semibold text-slate-500">Pcs</span></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -210,9 +230,9 @@ export function BranchView(props) {
       <div className={`p-6 sm:p-8 rounded-3xl border w-full transition-all duration-300 hover:shadow-xl ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-lg shadow-blue-900/5 relative overflow-hidden'}`}>
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
         <div className="mb-6 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/20 text-blue-700 border border-blue-200 dark:border-transparent flex items-center justify-center text-2xl mb-4">🏢</div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/20 text-blue-750 border border-blue-200 dark:border-transparent flex items-center justify-center text-2xl mb-4">🏢</div>
           <h3 className={`font-extrabold text-xl mb-1 tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>Registrasi Cabang</h3>
-          <p className={`text-sm leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Tambahkan otorisasi area baru ke ekosistem multi-cabang Anda.</p>
+          <p className={`text-sm leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-750'}`}>Tambahkan otorisasi area baru ke ekosistem multi-cabang Anda.</p>
         </div>
         
         <form onSubmit={handleAddBranch} className="space-y-4 relative z-10">
@@ -259,15 +279,15 @@ export function BranchView(props) {
                          {branch.is_active !== false ? 'Aktif' : 'Nonaktif'}
                        </span>
                      </h4>
-                     <p className="font-mono text-[11px] text-blue-800 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-800/50 inline-block px-2.5 py-1 rounded-lg">Token: {branch.token}</p>
+                     <p className="font-mono text-[11px] text-blue-850 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-800/50 inline-block px-2.5 py-1 rounded-lg">Token: {branch.token}</p>
                    </div>
                  )}
                </div>
 
                {editingBranchId !== branch.id && (
                  <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
-                   <button onClick={() => { setEditingBranchId(branch.id); setEditingBranchName(branch.name); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'}`}>✏️ Edit</button>
-                   <button onClick={() => handleToggleBranchStatus(branch.id, branch.is_active !== false)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'}`}>{branch.is_active !== false ? '⏸️ Nonaktif' : '▶️ Aktifkan'}</button>
+                   <button onClick={() => { setEditingBranchId(branch.id); setEditingBranchName(branch.name); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-850 border border-slate-300'}`}>✏️ Edit</button>
+                   <button onClick={() => handleToggleBranchStatus(branch.id, branch.is_active !== false)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-850 border border-slate-300'}`}>{branch.is_active !== false ? '⏸️ Nonaktif' : '▶️ Aktifkan'}</button>
                    <button onClick={() => handleRegenerateToken(branch.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? 'bg-amber-900/20 hover:bg-amber-900/40 text-amber-400' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'}`}>🔄 Token</button>
                    <button onClick={() => handleDeleteBranch(branch.id)} className={`ml-auto px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${darkMode ? 'bg-rose-900/20 hover:bg-rose-900/40 text-rose-400' : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300'}`}>🗑️ Hapus</button>
                  </div>
@@ -278,7 +298,7 @@ export function BranchView(props) {
            {branches.length === 0 && (
              <div className="col-span-full py-12 text-center bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-400 dark:border-slate-700">
                <span className="text-3xl block mb-2">🏢</span>
-               <p className={`font-bold text-sm ${darkMode ? 'text-slate-500' : 'text-slate-700'}`}>Belum ada cabang yang terdaftar.</p>
+               <p className={`font-bold text-sm ${darkMode ? 'text-slate-500' : 'text-slate-750'}`}>Belum ada cabang yang terdaftar.</p>
              </div>
            )}
          </div>
@@ -327,7 +347,7 @@ export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStoc
         
         <div className="p-2 sm:p-4 space-y-4 sm:space-y-6">
           {Object.keys(groupedSalesHistory).length === 0 ? (
-            <p className={`text-sm py-10 italic font-medium text-center rounded-2xl ${darkMode ? 'text-slate-400 bg-slate-800/50' : 'text-slate-700 bg-slate-50 border border-dashed border-slate-400'}`}>Belum ada riwayat transaksi tutup buku.</p>
+            <p className={`text-sm py-10 italic font-medium text-center rounded-2xl ${darkMode ? 'text-slate-400 bg-slate-800/50' : 'text-slate-750 bg-slate-50 border border-dashed border-slate-400'}`}>Belum ada riwayat transaksi tutup buku.</p>
           ) : (
             Object.keys(groupedSalesHistory).map(dateHeader => {
               const dailyOmset = groupedSalesHistory[dateHeader].reduce((sum, log) => sum + log.total_price, 0);
@@ -365,7 +385,7 @@ export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStoc
                       <div key={log.id} className={`p-4 rounded-xl border flex justify-between items-center transition-all hover:-translate-y-0.5 hover:shadow-sm ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-sm'}`}>
                         <div className="min-w-0 flex-1 pr-2">
                           <p className={`font-black text-sm truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>{log.item_name}</p>
-                          <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-500 mt-0.5 truncate flex items-center">
+                          <p className="text-[11px] font-semibold text-slate-650 dark:text-slate-500 mt-0.5 truncate flex items-center">
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-500 mr-1.5"></span>
                             {branches.find(b => b.id === log.branch_id)?.name || 'Cabang'}
                           </p>
@@ -402,7 +422,7 @@ export function ExpensesView({ darkMode, groupedExpenses, formatRupiah }) {
       {Object.keys(groupedExpenses).length === 0 ? (
         <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-400 dark:border-slate-700">
           <span className="text-4xl block mb-3">📁</span>
-          <p className={`font-bold ${darkMode ? 'text-slate-500' : 'text-slate-700'}`}>Belum ada berkas operasional pada periode ini.</p>
+          <p className={`font-bold ${darkMode ? 'text-slate-500' : 'text-slate-750'}`}>Belum ada berkas operasional pada periode ini.</p>
         </div>
       ) : (
         <div className="space-y-10">
