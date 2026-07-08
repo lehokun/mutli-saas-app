@@ -67,9 +67,10 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
         </div>
       </div>
 
-      <div className="relative h-64 sm:h-72 w-full overflow-hidden flex flex-col">
-        {/* Garis Grid Y-Axis (Latar Belakang) */}
-        <div className="absolute inset-0 flex flex-col justify-between pt-4 pb-8 pointer-events-none z-0">
+      {/* PERBAIKAN: Tinggi ditambah (h-80/h-96) & overflow-hidden dihapus agar tooltip bebas */}
+      <div className="relative h-80 sm:h-96 w-full flex flex-col">
+        {/* Garis Grid Y-Axis (Latar Belakang) - pt-24 memberi ruang di atas */}
+        <div className="absolute inset-0 flex flex-col justify-between pt-24 pb-8 pointer-events-none z-0">
           {[4, 3, 2, 1, 0].map(level => (
             <div key={level} className="w-full flex items-center border-t border-dashed border-slate-200 dark:border-slate-700/50 h-0">
               <span className={`absolute left-0 -translate-y-full text-[9px] font-semibold bg-transparent pr-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -79,8 +80,8 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
           ))}
         </div>
 
-        {/* Batang X-Axis (Depan) */}
-        <div className="relative z-10 flex items-end gap-2 sm:gap-4 overflow-x-auto h-full pb-8 pt-4 pl-12 pr-4 w-full hide-scroll" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {/* Batang X-Axis (Depan) - pt-24 membatasi tinggi batang agar tidak menyentuh atap container */}
+        <div className="relative z-10 flex items-end gap-2 sm:gap-4 overflow-x-auto h-full pb-8 pt-24 pl-12 pr-4 w-full hide-scroll" style={{ WebkitOverflowScrolling: 'touch' }}>
           {chartData.map((data, idx) => {
             const maxVal = localMax > 0 ? localMax : 1;
             const omsetHeight = (data.omset / maxVal) * 100;
@@ -89,8 +90,8 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
             return (
               <div key={idx} className="relative flex flex-col justify-end items-center flex-1 min-w-[40px] sm:min-w-[50px] h-full group">
                 
-                {/* Tooltip Hover Info */}
-                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs p-3 rounded-xl pointer-events-none z-20 whitespace-nowrap shadow-xl border border-slate-700">
+                {/* Tooltip Hover Info (z-50 agar tampil paling depan) */}
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs p-3 rounded-xl pointer-events-none z-50 whitespace-nowrap shadow-xl border border-slate-700">
                   <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-center text-[10px] text-slate-300 uppercase">{data.dateStr}</p>
                   {showOmset && <p className="flex justify-between gap-4 font-black mt-1"><span className="text-blue-400 font-bold">Omset:</span> {formatRupiah(data.omset)}</p>}
                   {showPengeluaran && <p className="flex justify-between gap-4 font-black mt-1"><span className="text-rose-400 font-bold">Keluar:</span> {formatRupiah(data.pengeluaran)}</p>}
