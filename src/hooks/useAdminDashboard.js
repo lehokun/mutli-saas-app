@@ -44,6 +44,11 @@ export function useAdminDashboard() {
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editingBranchName, setEditingBranchName] = useState('');
 
+  // Profile & Settings States
+  const [profileName, setProfileName] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   // Filter States
   const [filterBranchId, setFilterBranchId] = useState('ALL');
   const [filterTimeframe, setFilterTimeframe] = useState('ALL'); 
@@ -58,6 +63,9 @@ export function useAdminDashboard() {
       if (!user) return router.push('/login');
       
       setAdmin(user);
+      setProfileName(user?.user_metadata?.business_name || user?.user_metadata?.name || '');
+      setProfileAddress(user?.user_metadata?.address || '');
+
       const [branchesData, stocksData, expensesData, salesData] = await Promise.all([
         adminService.fetchBranches(user.id),
         adminService.fetchStocks(user.id),
@@ -212,6 +220,28 @@ export function useAdminDashboard() {
     } catch (err) { alert("Gagal: " + err.message); }
   };
 
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { business_name: profileName, address: profileAddress }
+      });
+      if (error) throw error;
+      alert('Profil berhasil diperbarui!');
+    } catch (err) { alert('Gagal memperbarui profil: ' + err.message); }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) return alert('Kata sandi minimal 6 karakter');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      alert('Kata sandi berhasil diubah! Silakan gunakan sandi baru untuk sesi berikutnya.');
+      setNewPassword('');
+    } catch (err) { alert('Gagal mengubah sandi: ' + err.message); }
+  };
+
   const handleLogout = async () => {
     if (window.confirm("Apakah anda yakin ingin keluar dari sistem?")) {
       await supabase.auth.signOut();
@@ -275,7 +305,7 @@ export function useAdminDashboard() {
 
   return {
     darkMode, setDarkMode, isSidebarOpen, setIsSidebarOpen, currentMenu, setCurrentMenu, loading,
-    branches, stocks, filterBranchId, setFilterBranchId, filterTimeframe, setFilterTimeframe,
+    admin, branches, stocks, filterBranchId, setFilterBranchId, filterTimeframe, setFilterTimeframe,
     filteredStocks, totalOmset, totalPengeluaran, labaBersih, chartData, maxChartOmset, router,
     groupedExpenses, groupedSalesHistory, formatRupiah, getUserInitials, getUserDisplayName,
     branchName, setBranchName, generatedToken, itemName, setItemName, quantity, setQuantity,
@@ -284,7 +314,9 @@ export function useAdminDashboard() {
     selectedBranchId, setSelectedBranchId, transferQty, setTransferQty, closingStockId,
     setClosingStockId, closingSoldQty, setClosingSoldQty, filteredExpenses,
     editingBranchId, setEditingBranchId, editingBranchName, setEditingBranchName,
+    profileName, setProfileName, profileAddress, setProfileAddress, newPassword, setNewPassword,
     handleAddBranch, handleDeleteBranch, handleUpdateBranch, handleToggleBranchStatus, handleRegenerateToken,
-    handleAddStock, handleAddExistingStock, handleTransferStock, handleClosingReport, handleLogout
+    handleAddStock, handleAddExistingStock, handleTransferStock, handleClosingReport, handleLogout,
+    handleUpdateProfile, handleChangePassword
   };
 }

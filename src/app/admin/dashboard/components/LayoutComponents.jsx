@@ -34,7 +34,7 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/></svg>
             </div>
             <span className={`font-black tracking-tight truncate transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-              MultiCabang <span className="text-xs font-semibold text-slate-400">Console</span>
+              Multi <span className="font-bold"  > Branch</span>
             </span>
             {/* Tombol Silang (X) Khusus Mobile */}
             {isSidebarOpen && (
@@ -80,38 +80,55 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
 
 export function Topbar({ darkMode, setDarkMode, isSidebarOpen, setIsSidebarOpen, filterTimeframe, setFilterTimeframe, filterBranchId, setFilterBranchId, branches, router }) {
   return (
-    <header className={`
-      ${isSidebarOpen ? 'hidden' : 'flex'} 
-      lg:flex sticky top-0 z-40 -mt-4 sm:-mt-6 lg:-mt-8 pt-4 sm:pt-6 lg:pt-8 pb-4 mb-6 backdrop-blur-xl transition-colors duration-300 flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b 
-      ${darkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50/90 border-slate-200'}
-    `}>
-      <div className="flex items-center gap-4">
-        <button onClick={() => setIsSidebarOpen(true)} className={`fixed top-4 left-4 z-50 p-3 rounded-xl border transition-all duration-200 active:scale-90 lg:hidden shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="18" x2="19" y2="18"></line>
-          </svg>
-        </button>
-        <div className="pl-14 lg:pl-0">
-          <span className={`text-[10px] font-bold tracking-wider uppercase ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Console Control</span>
-          <h1 className={`text-lg sm:text-xl font-black tracking-tight mt-0.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Manager Workspace</h1>
+    <header className={`sticky top-0 z-40 pb-4 mb-6 backdrop-blur-xl transition-colors duration-300 border-b 
+      -mt-4 pt-4 -mx-4 px-4 
+      sm:-mt-6 sm:pt-6 sm:-mx-6 sm:px-6 
+      lg:-mt-8 lg:pt-8 lg:-mx-8 lg:px-8 
+      ${darkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50/90 border-slate-200'} 
+      ${isSidebarOpen ? 'hidden lg:block' : 'block'}`}
+    >
+      <div className="flex flex-col gap-4">
+        
+        {}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsSidebarOpen(true)} 
+            className={`p-2.5 rounded-xl border transition-all duration-200 active:scale-95 lg:hidden shadow-sm shrink-0 flex items-center justify-center ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-700'}`}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="19" y2="18"></line>
+            </svg>
+          </button>
+          <div className="flex flex-col min-w-0">
+            <span className={`text-[10px] font-bold tracking-wider uppercase ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Console Control</span>
+            <h1 className={`text-lg sm:text-xl font-black tracking-tight mt-0.5 truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>Manager Workspace</h1>
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-        <button onClick={() => router.push('/branch-login')} className={`px-3 py-2 rounded-xl border text-[11px] font-bold transition-all shadow-sm ${darkMode ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-white border-slate-200 text-blue-600'}`}>📲 Portal Cabang</button>
-        <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-xl border text-[11px] font-bold transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-white border-slate-200 text-slate-700'}`}>{darkMode ? '☀️ Terang' : '🌙 Gelap'}</button>
-        <select className={`border-2 rounded-xl px-2.5 py-1.5 font-bold text-[11px] focus:outline-none transition-all ${darkMode ? 'bg-slate-800 border-indigo-500 text-indigo-400' : 'bg-indigo-50 border-indigo-600 text-indigo-900'}`} value={filterTimeframe} onChange={(e) => setFilterTimeframe(e.target.value)}>
-          <option value="ALL">🗓️ Semua Periode</option>
-          <option value="TODAY">📅 Hari Ini</option>
-          <option value="WEEK">📆 7 Hari</option>
-          <option value="MONTH">🗂️ Bulan Ini</option>
-        </select>
-        <select className={`border-2 rounded-xl px-2.5 py-1.5 font-bold text-[11px] focus:outline-none transition-all ${darkMode ? 'bg-slate-800 border-blue-500 text-blue-400' : 'bg-blue-50 border-blue-600 text-blue-900'}`} value={filterBranchId} onChange={(e) => setFilterBranchId(e.target.value)}>
-          <option value="ALL">🌐 Semua Cabang</option>
-          {branches.map(b => <option key={b.id} value={b.id}>📍 {b.name}</option>)}
-        </select>
+        {}
+        <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2">
+          <button onClick={() => router.push('/branch-login')} className={`col-span-1 px-3 py-2.5 md:py-2 rounded-xl border text-[11px] font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-white border-slate-200 text-blue-600'}`}>
+             📲 Portal <span className="hidden md:inline">Cabang</span>
+          </button>
+          <button onClick={() => setDarkMode(!darkMode)} className={`col-span-1 px-3 py-2.5 md:py-2 rounded-xl border text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-white border-slate-200 text-slate-700'}`}>
+             {darkMode ? '☀️ Terang' : '🌙 Gelap'}
+          </button>
+          
+          <select className={`col-span-2 md:col-span-1 border-2 rounded-xl px-3 py-2.5 md:py-2 font-bold text-[11px] focus:outline-none transition-all flex-1 min-w-[140px] ${darkMode ? 'bg-slate-800 border-indigo-500 text-indigo-400' : 'bg-indigo-50 border-indigo-600 text-indigo-900'}`} value={filterTimeframe} onChange={(e) => setFilterTimeframe(e.target.value)}>
+            <option value="ALL">🗓️ Semua Periode</option>
+            <option value="TODAY">📅 Hari Ini</option>
+            <option value="WEEK">📆 7 Hari</option>
+            <option value="MONTH">🗂️ Bulan Ini</option>
+          </select>
+          
+          <select className={`col-span-2 md:col-span-1 border-2 rounded-xl px-3 py-2.5 md:py-2 font-bold text-[11px] focus:outline-none transition-all flex-1 min-w-[140px] ${darkMode ? 'bg-slate-800 border-blue-500 text-blue-400' : 'bg-blue-50 border-blue-600 text-blue-900'}`} value={filterBranchId} onChange={(e) => setFilterBranchId(e.target.value)}>
+            <option value="ALL">🌐 Semua Cabang</option>
+            {branches.map(b => <option key={b.id} value={b.id}>📍 {b.name}</option>)}
+          </select>
+        </div>
+        
       </div>
     </header>
   );

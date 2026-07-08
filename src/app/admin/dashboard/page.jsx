@@ -33,7 +33,7 @@ export default function AdminDashboard() {
           {adminState.currentMenu === 'branch' && <BranchView {...adminState} />}
           {adminState.currentMenu === 'tutup-buku' && <TutupBukuView {...adminState} />}
           {adminState.currentMenu === 'expenses' && <ExpensesView {...adminState} />}
-          {adminState.currentMenu === 'setting' && <SettingView />}
+          {adminState.currentMenu === 'setting' && <SettingView {...adminState} />}
           
         </div>
       </div>
