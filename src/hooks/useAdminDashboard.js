@@ -24,6 +24,9 @@ export function useAdminDashboard() {
   // Filter States (Default ke 'ALL')
   const [filterBranchId, setFilterBranchId] = useState('ALL');
   const [filterTimeframe, setFilterTimeframe] = useState('ALL');
+  
+  // 🔥 STATE BARU UNTUK RENTANG HARI GRAFIK (Default 7, Max 30)
+  const [chartDays, setChartDays] = useState(7);
 
   // Forms States
   const [branchName, setBranchName] = useState('');
@@ -104,7 +107,6 @@ export function useAdminDashboard() {
   };
   const getUserDisplayName = () => admin?.user_metadata?.business_name || admin?.user_metadata?.name || admin?.email || "Administrator";
 
-  // 🔥 PERBAIKAN LOGIKA FILTER (Waktu & Cabang)
   const isBranchMatch = (itemBranchId, filterId) => {
     return !filterId || filterId === 'ALL' || itemBranchId === filterId;
   };
@@ -156,7 +158,7 @@ export function useAdminDashboard() {
     }, {});
   }, [filteredExpensesFlat]);
 
-  // 3. Kalkulasi Metrik (Sudah Terfilter Akurat)
+  // 3. Kalkulasi Metrik
   const totalOmset = filteredSalesHistoryFlat.reduce((sum, log) => sum + log.total_price, 0);
   const totalPengeluaran = filteredExpensesFlat.reduce((sum, exp) => sum + exp.amount, 0);
   
@@ -170,14 +172,14 @@ export function useAdminDashboard() {
 
   const labaBersih = totalOmset - filteredSalesHistoryFlat.reduce((sum, log) => sum + log.total_hpp, 0) - totalPengeluaran - totalKerugianExpired;
 
-  // Chart Data (Tetap menahan 7 hari struktur aslinya, namun difilter per-cabang)
+  // 🔥 UPDATE LOGIKA CHART (BISA 7, 14, MAX 30 HARI & GABUNG OMSET KELUAR)
   const chartData = useMemo(() => {
     const data = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = chartDays - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
+      const shortDay = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
       
       let dailyOmset = 0;
       if (groupedSalesHistoryRaw[dateStr]) {
@@ -186,16 +188,19 @@ export function useAdminDashboard() {
           return sum;
         }, 0);
       }
-      data.push({ day: dayName, dateStr, omset: dailyOmset });
+
+      let dailyPengeluaran = 0;
+      if (groupedExpensesRaw[dateStr]) {
+        dailyPengeluaran = groupedExpensesRaw[dateStr].reduce((sum, exp) => {
+          if (isBranchMatch(exp.branch_id, filterBranchId)) return sum + exp.amount;
+          return sum;
+        }, 0);
+      }
+      
+      data.push({ day: shortDay, dateStr, omset: dailyOmset, pengeluaran: dailyPengeluaran });
     }
     return data;
-  }, [groupedSalesHistoryRaw, filterBranchId]);
-
-  // 🔥 MENGATASI ERROR PRERENDERING BUILD NEXT.JS
-  const maxChartOmset = useMemo(() => {
-    if (chartData.length === 0) return 0;
-    return Math.max(...chartData.map(d => d.omset));
-  }, [chartData]);
+  }, [groupedSalesHistoryRaw, groupedExpensesRaw, filterBranchId, chartDays]);
 
   // --- Handlers: Branch Management ---
   const handleAddBranch = async (e) => {
@@ -356,8 +361,8 @@ export function useAdminDashboard() {
   return {
     darkMode, setDarkMode, isSidebarOpen, setIsSidebarOpen, currentMenu, setCurrentMenu, loading,
     admin, branches, stocks, filterBranchId, setFilterBranchId, filterTimeframe, setFilterTimeframe,
-    filteredStocks, totalOmset, totalPengeluaran, labaBersih, chartData, maxChartOmset, router,
-    // Ekspor Data yang Sudah di-Filter Penuh ke MenuViews.jsx
+    filteredStocks, totalOmset, totalPengeluaran, labaBersih, 
+    chartData, chartDays, setChartDays, router, // Export Chart State Baru
     groupedExpenses, groupedSalesHistory, filteredExpenses: filteredExpensesFlat,
     formatRupiah, getUserInitials, getUserDisplayName,
     branchName, setBranchName, generatedToken, itemName, setItemName, quantity, setQuantity,

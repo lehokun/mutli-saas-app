@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 // Reusable Form Input
 const FormInput = ({ type, placeholder, value, onChange, required = true, darkMode }) => (
@@ -18,9 +18,106 @@ const FormInput = ({ type, placeholder, value, onChange, required = true, darkMo
   />
 );
 
+// 🔥 KOMPONEN GRAFIK (DIgunakan di Dasbor, Tutup Buku & Pengeluaran)
+const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, darkMode, type = 'combo' }) => {
+  const showOmset = type === 'combo' || type === 'omset';
+  const showPengeluaran = type === 'combo' || type === 'pengeluaran';
+  
+  const title = type === 'combo' ? 'Grafik Performa Keuangan' : type === 'omset' ? 'Grafik Trend Penjualan (Omset)' : 'Grafik Trend Pengeluaran';
+  const subtitle = type === 'combo' ? 'Perbandingan omset penutupan buku dan pengeluaran.' : type === 'omset' ? 'Performa pemasukan kotor dari penutupan buku cabang.' : 'Pemantauan intensitas operasional cabang.';
+  const icon = type === 'combo' ? '📈' : type === 'omset' ? '💰' : '📉';
+
+  // Kalkulasi nilai maksimum dinamis agar grafik tidak melebihi kotak
+  const localMax = useMemo(() => {
+    if (!chartData || chartData.length === 0) return 0;
+    return Math.max(...chartData.map(d => {
+      let m = 0;
+      if (showOmset) m = Math.max(m, d.omset);
+      if (showPengeluaran) m = Math.max(m, d.pengeluaran);
+      return m;
+    }));
+  }, [chartData, showOmset, showPengeluaran]);
+
+  return (
+    <div className={`mb-6 p-5 sm:p-6 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+      <style>{`.hide-scroll::-webkit-scrollbar { display: none; }`}</style>
+      
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div>
+          <h2 className={`text-lg font-black tracking-tight flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+            <span className={`p-2 border rounded-lg ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>{icon}</span>
+            {title}
+          </h2>
+          <p className={`text-xs mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{subtitle}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4">
+          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
+            {showOmset && <span className="flex items-center gap-1.5"><div className="w-3 h-3 bg-gradient-to-t from-blue-700 to-blue-400 rounded-[3px]"></div> Omset</span>}
+            {showPengeluaran && <span className="flex items-center gap-1.5"><div className="w-3 h-3 bg-gradient-to-t from-rose-700 to-rose-400 rounded-[3px]"></div> Keluar</span>}
+          </div>
+          <select 
+            value={chartDays} 
+            onChange={(e) => setChartDays(Number(e.target.value))}
+            className={`rounded-xl border px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-800 shadow-sm'}`}
+          >
+            <option value={7}>7 Hari Terakhir</option>
+            <option value={14}>14 Hari Terakhir</option>
+            <option value={30}>30 Hari Terakhir</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="relative h-64 sm:h-72 w-full overflow-hidden flex flex-col">
+        {/* Garis Grid Y-Axis (Latar Belakang) */}
+        <div className="absolute inset-0 flex flex-col justify-between pt-4 pb-8 pointer-events-none z-0">
+          {[4, 3, 2, 1, 0].map(level => (
+            <div key={level} className="w-full flex items-center border-t border-dashed border-slate-200 dark:border-slate-700/50 h-0">
+              <span className={`absolute left-0 -translate-y-full text-[9px] font-semibold bg-transparent pr-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                {localMax > 0 ? formatRupiah((localMax / 4) * level).replace(',00', '') : 0}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Batang X-Axis (Depan) */}
+        <div className="relative z-10 flex items-end gap-2 sm:gap-4 overflow-x-auto h-full pb-8 pt-4 pl-12 pr-4 w-full hide-scroll" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {chartData.map((data, idx) => {
+            const maxVal = localMax > 0 ? localMax : 1;
+            const omsetHeight = (data.omset / maxVal) * 100;
+            const expHeight = (data.pengeluaran / maxVal) * 100;
+
+            return (
+              <div key={idx} className="relative flex flex-col justify-end items-center flex-1 min-w-[40px] sm:min-w-[50px] h-full group">
+                
+                {/* Tooltip Hover Info */}
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs p-3 rounded-xl pointer-events-none z-20 whitespace-nowrap shadow-xl border border-slate-700">
+                  <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-center text-[10px] text-slate-300 uppercase">{data.dateStr}</p>
+                  {showOmset && <p className="flex justify-between gap-4 font-black mt-1"><span className="text-blue-400 font-bold">Omset:</span> {formatRupiah(data.omset)}</p>}
+                  {showPengeluaran && <p className="flex justify-between gap-4 font-black mt-1"><span className="text-rose-400 font-bold">Keluar:</span> {formatRupiah(data.pengeluaran)}</p>}
+                </div>
+                
+                {/* Visual Batang */}
+                <div className="flex gap-1 items-end w-full h-full justify-center group-hover:bg-slate-100/50 dark:group-hover:bg-slate-800/50 rounded-t-lg transition-colors pt-2">
+                  {showOmset && <div style={{ height: `${omsetHeight}%` }} className="w-full max-w-[20px] bg-gradient-to-t from-blue-700 to-blue-400 rounded-t-[4px] transition-all duration-500 shadow-sm"></div>}
+                  {showPengeluaran && <div style={{ height: `${expHeight}%` }} className="w-full max-w-[20px] bg-gradient-to-t from-rose-700 to-rose-400 rounded-t-[4px] transition-all duration-500 shadow-sm"></div>}
+                </div>
+
+                {/* Label Tanggal */}
+                <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold whitespace-nowrap truncate w-14 text-center ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {data.day}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- 1. HOME VIEW (DASHBOARD UTAMA) ---
 export function HomeView(props) {
-  const { darkMode, totalOmset, labaBersih, totalPengeluaran, chartData, maxChartOmset, formatRupiah, stocks, branches, filteredStocks } = props;
+  const { darkMode, totalOmset, labaBersih, totalPengeluaran, chartData, chartDays, setChartDays, formatRupiah, stocks, branches, filteredStocks } = props;
 
   const hariIni = new Date();
   const totalKerugianExpired = filteredStocks.reduce((acc, item) => {
@@ -31,10 +128,7 @@ export function HomeView(props) {
   }, 0);
 
   const labaDisesuaikan = labaBersih - totalKerugianExpired;
-
-  const cardStyle = `relative overflow-hidden p-5 sm:p-6 rounded-2xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
-    darkMode ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-200 shadow-sm'
-  }`;
+  const cardStyle = `relative overflow-hidden p-5 sm:p-6 rounded-2xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-200 shadow-sm'}`;
 
   return (
     <div className="space-y-6">
@@ -86,6 +180,16 @@ export function HomeView(props) {
         </div>
       </div>
 
+      {/* GRAFIK DITAMPILKAN DI SINI (Kombinasi 30 Hari) */}
+      <PerformanceChart 
+        type="combo"
+        chartData={chartData}
+        chartDays={chartDays}
+        setChartDays={setChartDays}
+        formatRupiah={formatRupiah}
+        darkMode={darkMode}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         <div className={cardStyle}>
           <div className="flex items-center gap-3 mb-5">
@@ -101,14 +205,7 @@ export function HomeView(props) {
             <FormInput darkMode={darkMode} type="number" placeholder="Harga Jual (Rp)" value={props.hargaJual} onChange={props.setHargaJual} />
             <div>
               <label className={`block text-[10px] font-bold uppercase mb-1.5 ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>Batas Tanggal Kedaluwarsa</label>
-              <input 
-                type="date" 
-                className={`w-full rounded-xl border p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  darkMode ? 'bg-slate-800/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900 shadow-sm'
-                }`}
-                value={props.expiredDate || ''} 
-                onChange={(e) => props.setExpiredDate(e.target.value)} 
-              />
+              <input type="date" className={`w-full rounded-xl border p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900 shadow-sm'}`} value={props.expiredDate || ''} onChange={(e) => props.setExpiredDate(e.target.value)} />
             </div>
             <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20">Simpan Produk</button>
           </form>
@@ -271,19 +368,29 @@ export function BranchView(props) {
 }
 
 // --- 3. REKAP TUTUP BUKU VIEW ---
-export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStockId, closingSoldQty, setClosingSoldQty, handleClosingReport, groupedSalesHistory, groupedExpenses, branches, formatRupiah, filterBranchId }) {
+export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStockId, closingSoldQty, setClosingSoldQty, handleClosingReport, groupedSalesHistory, groupedExpenses, branches, formatRupiah, filterBranchId, chartData, chartDays, setChartDays }) {
   const cardStyle = `p-5 sm:p-6 rounded-3xl border transition-all duration-300 hover:shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`;
 
-  // 🔥 Logika Filter Cabang yang diperbaiki
   const allDatesSet = new Set([...Object.keys(groupedSalesHistory), ...Object.keys(groupedExpenses)]);
   const visibleDates = Array.from(allDatesSet).filter(dateHeader => {
     const sales = groupedSalesHistory[dateHeader] ? groupedSalesHistory[dateHeader].filter(log => !filterBranchId || filterBranchId === 'ALL' ? true : log.branch_id === filterBranchId) : [];
     const exps = groupedExpenses[dateHeader] ? groupedExpenses[dateHeader].filter(exp => !filterBranchId || filterBranchId === 'ALL' ? true : exp.branch_id === filterBranchId) : [];
-    return sales.length > 0 || exps.length > 0; // Tampilkan jika ada penjualan ATAU pengeluaran di cabang terpilih
+    return sales.length > 0 || exps.length > 0;
   });
 
   return (
     <div className="space-y-6">
+      
+      {/* GRAFIK KHUSUS OMSET PENJUALAN */}
+      <PerformanceChart 
+        type="omset"
+        chartData={chartData}
+        chartDays={chartDays}
+        setChartDays={setChartDays}
+        formatRupiah={formatRupiah}
+        darkMode={darkMode}
+      />
+
       <div className={cardStyle}>
         <h2 className={`text-lg sm:text-xl font-black tracking-tight flex items-center gap-3 mb-6 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
           <span className="p-2.5 bg-teal-50 border border-teal-200 dark:bg-teal-500/20 text-teal-700 rounded-xl">📊</span> 
@@ -329,7 +436,6 @@ export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStoc
               return (
                 <div key={dateHeader} className={`p-5 rounded-2xl border transition-all hover:shadow-md ${darkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-300'}`}>
                   
-                  {/* Tanggal & Ringkasan DENGAN KONTRAS WARNA YANG SUDAH DIPERBAIKI */}
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 mb-4 border-slate-300 dark:border-slate-700/50">
                     <div className={`text-xs sm:text-sm font-black px-4 py-2 rounded-xl border inline-flex items-center gap-2 ${darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-slate-200 border-slate-300'}`}>
                       <span>🗓️</span> {dateHeader}
@@ -379,74 +485,85 @@ export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStoc
 }
 
 // --- 4. EXPENSES CENTER VIEW ---
-export function ExpensesView({ darkMode, groupedExpenses, formatRupiah, filterBranchId }) {
-  // 🔥 Logika Filter Cabang yang diperbaiki
+export function ExpensesView({ darkMode, groupedExpenses, formatRupiah, filterBranchId, chartData, chartDays, setChartDays }) {
   const visibleDates = Object.keys(groupedExpenses).filter(dateHeader => {
     const exps = groupedExpenses[dateHeader].filter(exp => !filterBranchId || filterBranchId === 'ALL' ? true : exp.branch_id === filterBranchId);
     return exps.length > 0;
   });
 
   return (
-    <div className={`p-5 sm:p-8 rounded-3xl border space-y-8 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`}>
-      <div className="border-b border-slate-200 dark:border-slate-800 pb-5">
-        <h2 className={`text-xl sm:text-2xl font-black tracking-tight flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          <span className="p-3 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 text-rose-700 rounded-xl">🧾</span> 
-          Dedicated Expenses Center
-        </h2>
-        <p className={`text-sm mt-2 font-medium ${darkMode ? 'text-slate-500' : 'text-slate-700'}`}>Galeri bukti fisik nota pengeluaran operasional seluruh cabang.</p>
-      </div>
+    <div className="space-y-6">
+      
+      {/* GRAFIK KHUSUS PENGELUARAN */}
+      <PerformanceChart 
+        type="pengeluaran"
+        chartData={chartData}
+        chartDays={chartDays}
+        setChartDays={setChartDays}
+        formatRupiah={formatRupiah}
+        darkMode={darkMode}
+      />
 
-      {visibleDates.length === 0 ? (
-        <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-400 dark:border-slate-700">
-          <span className="text-4xl block mb-3">📁</span>
-          <p className={`font-bold ${darkMode ? 'text-slate-500' : 'text-slate-750'}`}>Belum ada berkas operasional pada periode/cabang ini.</p>
+      <div className={`p-5 sm:p-8 rounded-3xl border space-y-8 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`}>
+        <div className="border-b border-slate-200 dark:border-slate-800 pb-5">
+          <h2 className={`text-xl sm:text-2xl font-black tracking-tight flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+            <span className="p-3 bg-rose-50 border border-rose-200 dark:bg-rose-500/20 text-rose-700 rounded-xl">🧾</span> 
+            Dedicated Expenses Center
+          </h2>
+          <p className={`text-sm mt-2 font-medium ${darkMode ? 'text-slate-500' : 'text-slate-700'}`}>Galeri bukti fisik nota pengeluaran operasional seluruh cabang.</p>
         </div>
-      ) : (
-        <div className="space-y-10">
-          {visibleDates.map(dateHeader => {
-            const filteredExps = groupedExpenses[dateHeader].filter(exp => !filterBranchId || filterBranchId === 'ALL' ? true : exp.branch_id === filterBranchId);
 
-            return (
-              <div key={dateHeader} className="space-y-4">
-                <div className="sticky top-20 z-10 inline-block">
-                  <div className={`text-xs sm:text-sm font-black backdrop-blur-md px-4 py-2 rounded-xl border shadow-sm flex items-center gap-2 ${darkMode ? 'text-white bg-slate-800/90 border-slate-700' : 'text-slate-900 bg-slate-200/90 border-slate-300'}`}>
-                    <span>📌</span> {dateHeader}
+        {visibleDates.length === 0 ? (
+          <div className="py-16 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-400 dark:border-slate-700">
+            <span className="text-4xl block mb-3">📁</span>
+            <p className={`font-bold ${darkMode ? 'text-slate-500' : 'text-slate-750'}`}>Belum ada berkas operasional pada periode/cabang ini.</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {visibleDates.map(dateHeader => {
+              const filteredExps = groupedExpenses[dateHeader].filter(exp => !filterBranchId || filterBranchId === 'ALL' ? true : exp.branch_id === filterBranchId);
+
+              return (
+                <div key={dateHeader} className="space-y-4">
+                  <div className="sticky top-20 z-10 inline-block">
+                    <div className={`text-xs sm:text-sm font-black backdrop-blur-md px-4 py-2 rounded-xl border shadow-sm flex items-center gap-2 ${darkMode ? 'text-white bg-slate-800/90 border-slate-700' : 'text-slate-900 bg-slate-200/90 border-slate-300'}`}>
+                      <span>📌</span> {dateHeader}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pt-2">
+                    {filteredExps.map(exp => (
+                      <div key={exp.id} className={`group flex flex-col rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${darkMode ? 'bg-slate-950 border-slate-800 hover:shadow-rose-900/20' : 'bg-white border-slate-300 hover:shadow-rose-500/10 overflow-hidden shadow-sm'}`}>
+                        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                          <div className="flex justify-between items-start mb-3">
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border truncate max-w-[60%] ${darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-slate-200 border-slate-300'}`}>
+                              {exp.branches?.name || 'Gudang Pusat'}
+                            </span>
+                            <span className={`text-sm font-black px-2 py-1 rounded-md border ${darkMode ? 'text-rose-400 bg-rose-900/20 border-transparent' : 'text-rose-700 bg-rose-100 border-rose-300'}`}>
+                              {formatRupiah(exp.amount)}
+                            </span>
+                          </div>
+                          <p className={`text-xs font-semibold leading-relaxed line-clamp-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                            "{exp.notes || 'Pengeluaran tanpa keterangan'}"
+                          </p>
+                        </div>
+
+                        <div className="relative p-3 bg-slate-100 dark:bg-slate-900/50 flex-1 flex items-center justify-center min-h-[160px]">
+                          <img 
+                            src={exp.image_url} 
+                            alt="Bukti Nota" 
+                            className="w-full h-auto max-h-48 object-contain rounded-lg border border-slate-300 dark:border-slate-700 shadow-sm transition-transform duration-500 group-hover:scale-105" 
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pt-2">
-                  {filteredExps.map(exp => (
-                    <div key={exp.id} className={`group flex flex-col rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${darkMode ? 'bg-slate-950 border-slate-800 hover:shadow-rose-900/20' : 'bg-white border-slate-300 hover:shadow-rose-500/10 overflow-hidden shadow-sm'}`}>
-                      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-                        {/* KONTRAS WARNA BADGE SUDAH DIPERBAIKI */}
-                        <div className="flex justify-between items-start mb-3">
-                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border truncate max-w-[60%] ${darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-slate-200 border-slate-300'}`}>
-                            {exp.branches?.name || 'Gudang Pusat'}
-                          </span>
-                          <span className={`text-sm font-black px-2 py-1 rounded-md border ${darkMode ? 'text-rose-400 bg-rose-900/20 border-transparent' : 'text-rose-700 bg-rose-100 border-rose-300'}`}>
-                            {formatRupiah(exp.amount)}
-                          </span>
-                        </div>
-                        <p className={`text-xs font-semibold leading-relaxed line-clamp-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                          "{exp.notes || 'Pengeluaran tanpa keterangan'}"
-                        </p>
-                      </div>
-
-                      <div className="relative p-3 bg-slate-100 dark:bg-slate-900/50 flex-1 flex items-center justify-center min-h-[160px]">
-                        <img 
-                          src={exp.image_url} 
-                          alt="Bukti Nota" 
-                          className="w-full h-auto max-h-48 object-contain rounded-lg border border-slate-300 dark:border-slate-700 shadow-sm transition-transform duration-500 group-hover:scale-105" 
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
