@@ -35,7 +35,7 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/></svg>
             </div>
             <span className={`font-black tracking-tight truncate transition-opacity duration-300 opacity-100 lg:opacity-0 ${isExpanded ? 'lg:opacity-100' : ''} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-              AnimalCare
+              Multi Branch
             </span>
             {/* Tombol Silang (X) Khusus Mobile */}
             {isSidebarOpen && (
