@@ -172,7 +172,6 @@ export function useAdminDashboard() {
 
   const labaBersih = totalOmset - filteredSalesHistoryFlat.reduce((sum, log) => sum + log.total_hpp, 0) - totalPengeluaran - totalKerugianExpired;
 
-  // 🔥 UPDATE LOGIKA CHART (BISA 7, 14, MAX 30 HARI & GABUNG OMSET KELUAR)
   const chartData = useMemo(() => {
     const data = [];
     for (let i = chartDays - 1; i >= 0; i--) {
@@ -202,10 +201,27 @@ export function useAdminDashboard() {
     return data;
   }, [groupedSalesHistoryRaw, groupedExpensesRaw, filterBranchId, chartDays]);
 
-  // --- Handlers: Branch Management ---
+  // --- Handlers: Branch Management (DIPERBAIKI) ---
+  
+  // Fungsi Helper untuk Cek Duplikasi Nama Cabang (Case Insensitive)
+  const isBranchNameExist = (nameToCheck, excludeId = null) => {
+    const cleanName = nameToCheck.trim().toLowerCase();
+    return branches.some(branch => {
+      // Jika excludeId ada, lewati pengecekan untuk ID tersebut (berguna saat Edit)
+      if (excludeId && branch.id === excludeId) return false;
+      return branch.name.trim().toLowerCase() === cleanName;
+    });
+  };
+
   const handleAddBranch = async (e) => {
     e.preventDefault();
     if (!branchName.trim()) return alert("Nama cabang tidak boleh kosong!");
+    
+    // 🔥 VALIDASI: Cegah Nama Ganda (KADAKA == kadaka)
+    if (isBranchNameExist(branchName)) {
+      return alert(`Gagal! Nama cabang "${branchName}" sudah terdaftar di sistem Anda.`);
+    }
+
     const tokenBaru = Math.random().toString(36).substring(2, 10).toUpperCase();
     try {
       const newBranch = await adminService.addBranch(branchName, admin.id, tokenBaru);
@@ -217,19 +233,54 @@ export function useAdminDashboard() {
 
   const handleUpdateBranch = async (id) => {
     if (!editingBranchName.trim()) return alert("Nama tidak boleh kosong!");
+    
+    // 🔥 VALIDASI: Cegah Edit ke Nama yang Sudah Ada (Kecuali namanya sendiri)
+    if (isBranchNameExist(editingBranchName, id)) {
+      return alert(`Gagal! Nama cabang "${editingBranchName}" sudah dipakai oleh cabang lain.`);
+    }
+
     try {
-      await adminService.updateBranch(id, { name: editingBranchName });
+      // 🔥 PERBAIKAN: Eksekusi update secara langsung ke Supabase agar pasti tersimpan di database
+      const { error } = await supabase
+        .from('branches')
+        .update({ name: editingBranchName })
+        .eq('id', id)
+        .eq('admin_id', admin.id);
+        
+      if (error) throw error;
+
+      // Update Tampilan Layar (UI)
       setBranches(prev => prev.map(b => b.id === id ? { ...b, name: editingBranchName } : b));
       setEditingBranchId(null);
-    } catch (error) { alert("Gagal mengupdate cabang: " + error.message); }
+    } catch (error) { 
+      alert("Gagal mengupdate nama cabang: " + error.message); 
+    }
   };
 
   const handleDeleteBranch = async (id) => {
-    if (!window.confirm("Yakin hapus cabang ini? Seluruh data terkait akan terhapus permanen.")) return;
+    if (!window.confirm("PENGHAPUSAN PERMANEN!\n\nYakin ingin menghapus cabang ini? Seluruh data laporan, stok, dan nota cabang ini akan hilang selamanya.")) return;
+    
     try {
-      await adminService.deleteBranch(id);
+      // 🔥 PERBAIKAN: Gunakan pemanggilan langsung ke Supabase untuk memastikan penghapusan tereksekusi
+      const { error } = await supabase.from('branches').delete().eq('id', id).eq('admin_id', admin.id);
+      
+      if (error) {
+        // Jika gagal karena Foreign Key constraint (stok/laporan masih ada), tangkap errornya
+        if (error.message.includes('foreign key')) {
+          throw new Error('Cabang tidak dapat dihapus karena masih memiliki riwayat transaksi atau sisa stok. Harap kosongkan atau transfer stok terlebih dahulu.');
+        }
+        throw error;
+      }
+      
+      // Jika berhasil di database, hapus dari tampilan UI
       setBranches(prev => prev.filter(b => b.id !== id));
-    } catch (error) { alert("Gagal menghapus cabang: " + error.message); }
+      alert("Cabang berhasil dihapus secara permanen.");
+      
+      // Refresh dasbor untuk membersihkan tabel stok dan laporan dari cabang yang dihapus
+      loadDashboardData();
+    } catch (error) { 
+      alert("Gagal menghapus cabang: " + error.message); 
+    }
   };
 
   const handleToggleBranchStatus = async (id, currentStatus) => {
