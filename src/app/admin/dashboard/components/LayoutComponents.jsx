@@ -22,8 +22,9 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
         onMouseEnter={() => setIsExpanded(true)}
         onMouseLeave={() => setIsExpanded(false)}
         className={`fixed top-0 left-0 h-[100dvh] z-50 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] border-r flex flex-col justify-between py-6
-          ${isExpanded ? 'w-64' : 'w-20'}
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          w-64 lg:w-20 ${isExpanded ? 'lg:w-64' : ''}
+          ${isSidebarOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'}
+          ${!isSidebarOpen ? 'pointer-events-none lg:pointer-events-auto' : 'pointer-events-auto'}
           ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}
         `}
       >
@@ -33,8 +34,8 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shrink-0">
                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/></svg>
             </div>
-            <span className={`font-black tracking-tight truncate transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-              Multi <span className="font-bold"  > Branch</span>
+            <span className={`font-black tracking-tight truncate transition-opacity duration-300 opacity-100 lg:opacity-0 ${isExpanded ? 'lg:opacity-100' : ''} ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+              AnimalCare
             </span>
             {/* Tombol Silang (X) Khusus Mobile */}
             {isSidebarOpen && (
@@ -56,7 +57,7 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
                 }`}
               >
                 <span className="text-xl shrink-0">{item.icon}</span>
-                <span className={`font-bold whitespace-nowrap text-sm transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>
+                <span className={`font-bold whitespace-nowrap text-sm transition-opacity duration-300 opacity-100 lg:opacity-0 ${isExpanded ? 'lg:opacity-100' : ''}`}>
                   {item.label}
                 </span>
               </button>
@@ -67,7 +68,7 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, currentMenu, setCurre
         <div className="px-4">
           <button onClick={handleLogout} className="flex items-center gap-4 px-4 py-3 w-full text-red-500 hover:bg-red-50 rounded-xl transition-all">
             <span className="text-xl shrink-0">🚪</span>
-            <span className={`font-bold text-sm transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>Logout</span>
+            <span className={`font-bold text-sm transition-opacity duration-300 opacity-100 lg:opacity-0 ${isExpanded ? 'lg:opacity-100' : ''}`}>Logout</span>
           </button>
         </div>
       </aside>
