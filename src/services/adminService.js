@@ -46,8 +46,16 @@ export const adminService = {
 
   // 🔥 TAMBAHKAN 2 FUNGSI BARU INI DI BAWAH addBranch:
   async updateBranch(branchId, updateData) {
-    const { error } = await supabase.from('branches').update(updateData).eq('id', branchId);
+    // Tambahkan .select() untuk memaksa Supabase mengembalikan baris yang berhasil diupdate
+    const { data, error } = await supabase.from('branches').update(updateData).eq('id', branchId).select();
+    
     if (error) throw new Error(error.message);
+    
+    // Jika data kosong, berarti database MENOLAK update (Biasanya karena RLS Update belum diatur)
+    if (!data || data.length === 0) {
+      throw new Error("Tertolak oleh database. Pastikan Policy RLS untuk fitur UPDATE sudah Anda izinkan di Supabase!");
+    }
+    
     return true;
   },
 

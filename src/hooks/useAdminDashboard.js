@@ -198,11 +198,19 @@ export function useAdminDashboard() {
 
   const handleUpdateBranch = async (id) => {
     if (!editingBranchName.trim()) return alert("Nama tidak boleh kosong!");
+    const namaLama = branches.find(b => b.id === id)?.name;
+    
     try {
-      await adminService.updateBranch(id, { name: editingBranchName });
+      // Optimistic Update: Ubah di layar saat itu juga
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, name: editingBranchName } : b));
       setEditingBranchId(null);
-      loadDashboardData();
-    } catch (error) { alert("Gagal mengupdate cabang: " + error.message); }
+      
+      await adminService.updateBranch(id, { name: editingBranchName });
+    } catch (error) { 
+      // Rollback: Kembalikan nama lama jika database error
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, name: namaLama } : b));
+      alert("Gagal mengupdate cabang: " + error.message); 
+    }
   };
 
   const handleDeleteBranch = async (id) => {
@@ -215,19 +223,36 @@ export function useAdminDashboard() {
 
   const handleToggleBranchStatus = async (id, currentStatus) => {
     try {
+      // Optimistic Update: Ubah layar saat itu juga
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b));
+      
       await adminService.updateBranch(id, { is_active: !currentStatus });
-      loadDashboardData();
-    } catch (error) { alert("Gagal merubah status cabang: " + error.message); }
+    } catch (error) { 
+      // Rollback
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, is_active: currentStatus } : b));
+      alert("Gagal merubah status cabang: " + error.message); 
+    }
   };
 
   const handleRegenerateToken = async (id) => {
     if (!window.confirm("Yakin ingin mengganti token? Token lama tidak bisa dipakai lagi oleh karyawan cabang.")) return;
     const tokenBaru = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const tokenLama = branches.find(b => b.id === id)?.token;
+    
     try {
+      // Optimistic Update: Paksa token di layar berganti instan sebelum alert muncul
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, token: tokenBaru } : b));
+      
       await adminService.updateBranch(id, { token: tokenBaru });
-      alert(`Token Baru: ${tokenBaru}\n\nSilakan berikan ke karyawan Anda.`);
-      loadDashboardData();
-    } catch (error) { alert("Gagal membuat token baru: " + error.message); }
+      
+      // Delay alert sedikit agar UI React punya waktu untuk berubah bentuk di layar
+      setTimeout(() => alert(`Token Baru: ${tokenBaru}\n\nSilakan berikan ke karyawan Anda.`), 100);
+      
+    } catch (error) { 
+      // Rollback ke token lama jika database RLS menolak update
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, token: tokenLama } : b));
+      alert("Gagal membuat token baru: " + error.message); 
+    }
   };
 
   // --- Handlers: Stock Management ---

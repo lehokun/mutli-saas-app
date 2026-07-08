@@ -101,6 +101,28 @@ export default function BranchDashboard() {
       setUploading(false);
     }
   };
+  
+  // Contoh penerapan pada file Dashboard Cabang Anda
+  useEffect(() => {
+    const loadAndVerifyBranch = async () => {
+      // Dulu mungkin Anda menggunakan getBranchSession() biasa
+      // SEKARANG GUNAKAN verifyActiveSession()
+      const validSession = await branchAuthService.verifyActiveSession();
+      
+      if (!validSession) {
+        // Jika token sudah expired / diganti Admin, sistem mengembalikan null.
+        // Lempar staf kembali ke halaman login cabang!
+        alert("Sesi berakhir atau token telah di-reset oleh Pusat. Silakan login kembali!");
+        router.push('/branch-login');
+        return;
+      }
+
+      // Jika aman, lanjutkan memuat data operasional cabang...
+      // setBranchData(validSession);
+    };
+
+    loadAndVerifyBranch();
+  }, [router]);
 
   if (loading) return <div className="p-8 text-center text-black">Memuat Halaman...</div>;
 
