@@ -191,6 +191,12 @@ export function useAdminDashboard() {
     return data;
   }, [groupedSalesHistoryRaw, filterBranchId]);
 
+  // 🔥 MENGATASI ERROR PRERENDERING BUILD NEXT.JS
+  const maxChartOmset = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map(d => d.omset));
+  }, [chartData]);
+
   // --- Handlers: Branch Management ---
   const handleAddBranch = async (e) => {
     e.preventDefault();
