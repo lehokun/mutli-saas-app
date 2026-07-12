@@ -5,7 +5,8 @@ import { useState, useMemo } from 'react';
 // Reusable Form Input
 const FormInput = ({ type, placeholder, value, onChange, required = true, darkMode }) => (
   <input 
-    type={type} 
+    type={type === 'number' ? 'text' : type} 
+    inputMode={type === 'number' ? 'numeric' : undefined}
     placeholder={placeholder} 
     required={required}
     className={`w-full rounded-xl border p-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
@@ -14,7 +15,14 @@ const FormInput = ({ type, placeholder, value, onChange, required = true, darkMo
         : 'bg-white border-slate-300 text-slate-900 placeholder-slate-600 shadow-sm font-medium'
     }`}
     value={value ?? ''} 
-    onChange={(e) => onChange(e.target.value)}
+    onChange={(e) => {
+      let val = e.target.value;
+      // Filter mutlak: jika ini field angka, hapus semua karakter selain 0-9
+      if (type === 'number') {
+        val = val.replace(/[^0-9]/g, '');
+      }
+      onChange(val);
+    }}
   />
 );
 
@@ -67,9 +75,7 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
         </div>
       </div>
 
-      {/* PERBAIKAN: Tinggi ditambah (h-80/h-96) & overflow-hidden dihapus agar tooltip bebas */}
       <div className="relative h-80 sm:h-96 w-full flex flex-col">
-        {/* Garis Grid Y-Axis (Latar Belakang) - pt-24 memberi ruang di atas */}
         <div className="absolute inset-0 flex flex-col justify-between pt-24 pb-8 pointer-events-none z-0">
           {[4, 3, 2, 1, 0].map(level => (
             <div key={level} className="w-full flex items-center border-t border-dashed border-slate-200 dark:border-slate-700/50 h-0">
@@ -80,7 +86,6 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
           ))}
         </div>
 
-        {/* Batang X-Axis (Depan) - pt-24 membatasi tinggi batang agar tidak menyentuh atap container */}
         <div className="relative z-10 flex items-end gap-2 sm:gap-4 overflow-x-auto h-full pb-8 pt-24 pl-12 pr-4 w-full hide-scroll" style={{ WebkitOverflowScrolling: 'touch' }}>
           {chartData.map((data, idx) => {
             const maxVal = localMax > 0 ? localMax : 1;
@@ -90,20 +95,17 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
             return (
               <div key={idx} className="relative flex flex-col justify-end items-center flex-1 min-w-[40px] sm:min-w-[50px] h-full group">
                 
-                {/* Tooltip Hover Info (z-50 agar tampil paling depan) */}
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-xs p-3 rounded-xl pointer-events-none z-50 whitespace-nowrap shadow-xl border border-slate-700">
                   <p className="font-bold border-b border-slate-700 pb-1 mb-2 text-center text-[10px] text-slate-300 uppercase">{data.dateStr}</p>
                   {showOmset && <p className="flex justify-between gap-4 font-black mt-1"><span className="text-blue-400 font-bold">Omset:</span> {formatRupiah(data.omset)}</p>}
                   {showPengeluaran && <p className="flex justify-between gap-4 font-black mt-1"><span className="text-rose-400 font-bold">Keluar:</span> {formatRupiah(data.pengeluaran)}</p>}
                 </div>
                 
-                {/* Visual Batang */}
                 <div className="flex gap-1 items-end w-full h-full justify-center group-hover:bg-slate-100/50 dark:group-hover:bg-slate-800/50 rounded-t-lg transition-colors pt-2">
                   {showOmset && <div style={{ height: `${omsetHeight}%` }} className="w-full max-w-[20px] bg-gradient-to-t from-blue-700 to-blue-400 rounded-t-[4px] transition-all duration-500 shadow-sm"></div>}
                   {showPengeluaran && <div style={{ height: `${expHeight}%` }} className="w-full max-w-[20px] bg-gradient-to-t from-rose-700 to-rose-400 rounded-t-[4px] transition-all duration-500 shadow-sm"></div>}
                 </div>
 
-                {/* Label Tanggal */}
                 <span className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold whitespace-nowrap truncate w-14 text-center ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                   {data.day}
                 </span>
@@ -120,6 +122,9 @@ const PerformanceChart = ({ chartData, chartDays, setChartDays, formatRupiah, da
 export function HomeView(props) {
   const { darkMode, totalOmset, labaBersih, totalPengeluaran, chartData, chartDays, setChartDays, formatRupiah, stocks, branches, filteredStocks } = props;
 
+  // 🔥 PERBAIKAN: Flatten array branches untuk mencegah error saat Supabase mereturn nested array
+  const flatBranches = useMemo(() => branches?.flat() || [], [branches]);
+
   const hariIni = new Date();
   const totalKerugianExpired = filteredStocks.reduce((acc, item) => {
     if (item.expired_at && new Date(item.expired_at) < hariIni && item.quantity > 0) {
@@ -130,6 +135,24 @@ export function HomeView(props) {
 
   const labaDisesuaikan = labaBersih - totalKerugianExpired;
   const cardStyle = `relative overflow-hidden p-5 sm:p-6 rounded-2xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-200 shadow-sm'}`;
+
+  // Helper function: Trigger Edit Mode for Table Row
+  const triggerEditStock = (item) => {
+    props.setEditingStockId(item.id);
+    props.setEditStockName(item.item_name);
+    props.setEditStockQty(item.quantity);
+    props.setEditStockHpp(item.hpp);
+    props.setEditStockHargaJual(item.harga_jual);
+    props.setEditStockExpiredDate(item.expired_at ? new Date(item.expired_at).toISOString().split('T')[0] : '');
+  };
+
+  const inputEditStyle = `w-full rounded border px-2 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`;
+
+  // 🔥 PERBAIKAN: Fungsi helper mencegah input aneh & negatif pada mode Edit
+  const handleEditNumberChange = (e, setter) => {
+    let val = e.target.value.replace(/[^0-9]/g, ''); // Pastikan murni angka
+    setter(val);
+  };
 
   return (
     <div className="space-y-6">
@@ -241,7 +264,7 @@ export function HomeView(props) {
             </select>
             <select required className={`w-full rounded-xl border p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 ${darkMode ? 'bg-slate-800/50 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900 shadow-sm'}`} value={props.selectedBranchId} onChange={(e) => props.setSelectedBranchId(e.target.value)}>
               <option value="">-- Pilih Cabang Penerima --</option>
-              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {flatBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <FormInput darkMode={darkMode} type="number" placeholder="Kuantitas Transfer" value={props.transferQty} onChange={props.setTransferQty} />
             <button className="w-full mt-2 bg-purple-600 text-white p-3 rounded-xl font-bold text-sm hover:bg-purple-700 transition-all">Kirim Ke Cabang</button>
@@ -262,10 +285,12 @@ export function HomeView(props) {
                 <th className="p-4">Masa Expired</th>
                 <th className="p-4">Status Kelayakan</th>
                 <th className="p-4 text-right">Sisa Stok</th>
+                <th className="p-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50 text-sm">
               {filteredStocks.map((item) => {
+                // Logika Status Expired
                 let statusBadge = <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md text-[11px] font-bold border border-emerald-300">Aman / Layak</span>;
                 if (item.expired_at) {
                   const sisaHari = Math.ceil((new Date(item.expired_at) - hariIni) / (1000 * 60 * 60 * 24));
@@ -275,15 +300,110 @@ export function HomeView(props) {
                     statusBadge = <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-[11px] font-bold border border-amber-300">⚠️ &lt; 7 Hari Lagi</span>;
                   }
                 }
+                
+                // BARIS MODE EDIT
+                if (props.editingStockId === item.id) {
+                  return (
+                    <tr key={item.id} className={`transition-colors bg-blue-50/50 dark:bg-blue-900/10 ${darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
+                      <td className="p-3">
+                        <input type="text" value={props.editStockName} onChange={e => props.setEditStockName(e.target.value)} className={inputEditStyle} placeholder="Nama Produk" />
+                        <div className="flex gap-2 mt-2">
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            value={props.editStockHpp} 
+                            onChange={e => handleEditNumberChange(e, props.setEditStockHpp)} 
+                            className={inputEditStyle} 
+                            placeholder="HPP" 
+                          />
+                          <input 
+                            type="text" 
+                            inputMode="numeric"
+                            value={props.editStockHargaJual} 
+                            onChange={e => handleEditNumberChange(e, props.setEditStockHargaJual)} 
+                            className={inputEditStyle} 
+                            placeholder="Harga Jual" 
+                          />
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-md font-bold text-xs inline-block ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'}`}>{item.branches?.name || '🏢 Pusat'}</span>
+                      </td>
+                      <td className="p-3">
+                        <input type="date" value={props.editStockExpiredDate || ''} onChange={e => props.setEditStockExpiredDate(e.target.value)} className={inputEditStyle} />
+                      </td>
+                      <td className="p-3">
+                        <span className="text-[10px] text-slate-500 italic flex items-center h-full">Mode Edit...</span>
+                      </td>
+                      <td className="p-3">
+                        <input 
+                          type="text" 
+                          inputMode="numeric"
+                          value={props.editStockQty} 
+                          onChange={e => handleEditNumberChange(e, props.setEditStockQty)} 
+                          className={`${inputEditStyle} text-right`} 
+                          placeholder="Qty" 
+                        />
+                      </td>
+                      <td className="p-3 text-center align-middle">
+                        <div className="flex justify-center gap-1.5 h-full">
+                          <button 
+                            type="button" 
+                            onClick={() => props.handleUpdateStock(item.id)} 
+                            className="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 transition-colors" 
+                            title="Simpan"
+                          >
+                            💾
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => props.setEditingStockId(null)} 
+                            className="p-1.5 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 transition-colors" 
+                            title="Batal"
+                          >
+                            ❌
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                // BARIS MODE BACA (NORMAL)
                 return (
                   <tr key={item.id} className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/20 ${darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
-                    <td className={`p-4 font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>{item.item_name}</td>
+                    <td className={`p-4 font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {item.item_name}
+                      <div className={`text-[10px] font-medium mt-1 ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                        HPP: {formatRupiah(item.hpp)} <span className="mx-1">•</span> Jual: {formatRupiah(item.harga_jual)}
+                      </div>
+                    </td>
                     <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'}`}>{item.branches?.name || '🏢 Pusat'}</span>
+                      <span className={`px-2 py-0.5 rounded-md font-bold text-xs inline-block ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-200 border-slate-300 text-slate-900'}`}>{item.branches?.name || '🏢 Pusat'}</span>
                     </td>
                     <td className="p-4 font-mono font-bold">{item.expired_at ? new Date(item.expired_at).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) : 'Tanpa Expired'}</td>
                     <td className="p-4">{statusBadge}</td>
                     <td className={`p-4 text-right font-black text-base ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>{item.quantity} <span className="text-xs font-semibold text-slate-500">Pcs</span></td>
+                    <td className="p-4 text-center">
+                      <div className="flex justify-center gap-1.5">
+                        <button 
+                          type="button" 
+                          onClick={() => triggerEditStock(item)} 
+                          className="p-1.5 bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 transition-colors" 
+                          title="Edit Produk"
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => props.handleDeleteStock(item.id)} 
+                          className="p-1.5 bg-rose-100 text-rose-700 rounded-md hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-400 transition-colors" 
+                          title="Hapus Produk"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -299,6 +419,9 @@ export function HomeView(props) {
 export function BranchView(props) {
   const { darkMode, branchName, setBranchName, handleAddBranch, generatedToken, branches, handleDeleteBranch, handleUpdateBranch, handleToggleBranchStatus, handleRegenerateToken, editingBranchId, setEditingBranchId, editingBranchName, setEditingBranchName } = props;
   
+  // 🔥 PERBAIKAN: Flatten array agar cabang baru dapat langsung dirender
+  const flatBranches = useMemo(() => branches?.flat() || [], [branches]);
+
   return (
     <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6 items-start">
       <div className={`p-6 sm:p-8 rounded-3xl border w-full transition-all duration-300 hover:shadow-xl ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-lg shadow-blue-900/5 relative overflow-hidden'}`}>
@@ -328,7 +451,7 @@ export function BranchView(props) {
            <h3 className={`font-extrabold text-xl tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>Daftar Cabang Terdaftar</h3>
          </div>
          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-           {branches.map(branch => (
+           {flatBranches.map(branch => (
              <div key={branch.id} className={`p-5 rounded-2xl border flex flex-col justify-between transition-all hover:shadow-md ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`}>
                <div className="flex justify-between items-start mb-5">
                  {editingBranchId === branch.id ? (
@@ -371,6 +494,9 @@ export function BranchView(props) {
 // --- 3. REKAP TUTUP BUKU VIEW ---
 export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStockId, closingSoldQty, setClosingSoldQty, handleClosingReport, groupedSalesHistory, groupedExpenses, branches, formatRupiah, filterBranchId, chartData, chartDays, setChartDays }) {
   const cardStyle = `p-5 sm:p-6 rounded-3xl border transition-all duration-300 hover:shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`;
+
+  // 🔥 PERBAIKAN: Gunakan flatBranches
+  const flatBranches = useMemo(() => branches?.flat() || [], [branches]);
 
   const allDatesSet = new Set([...Object.keys(groupedSalesHistory), ...Object.keys(groupedExpenses)]);
   const visibleDates = Array.from(allDatesSet).filter(dateHeader => {
@@ -465,7 +591,7 @@ export function TutupBukuView({ darkMode, stocks, closingStockId, setClosingStoc
                           <p className={`font-black text-sm truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>{log.item_name}</p>
                           <p className={`text-[11px] font-semibold mt-0.5 truncate flex items-center ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                             <span className="inline-block w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-500 mr-1.5"></span>
-                            {branches.find(b => b.id === log.branch_id)?.name || 'Cabang'}
+                            {flatBranches.find(b => b.id === log.branch_id)?.name || 'Cabang'}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
@@ -574,12 +700,15 @@ export function SettingView({ darkMode, admin, branches, totalOmset, labaBersih,
   const cardStyle = `p-6 sm:p-8 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`;
   const inputStyle = `w-full rounded-xl border p-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800/50 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-600 shadow-sm'}`;
 
+  // 🔥 PERBAIKAN: Gunakan flatBranches
+  const flatBranches = useMemo(() => branches?.flat() || [], [branches]);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className={`p-6 rounded-2xl border flex flex-col justify-center ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`}>
           <div className={`text-xs font-bold uppercase mb-2 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-slate-700'}`}><span>🏢</span> Total Cabang Aktif</div>
-          <div className={`text-3xl font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{branches?.length || 0} <span className="text-base font-bold text-slate-600">Lokasi</span></div>
+          <div className={`text-3xl font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>{flatBranches?.length || 0} <span className="text-base font-bold text-slate-600">Lokasi</span></div>
         </div>
         <div className={`p-6 rounded-2xl border flex flex-col justify-center ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-sm'}`}>
           <div className={`text-xs font-bold uppercase mb-2 flex items-center gap-2 ${darkMode ? 'text-slate-500' : 'text-slate-700'}`}><span>💰</span> Akumulasi Omset</div>

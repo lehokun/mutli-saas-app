@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { useRouter } from 'next/navigation';
+import { branchAuthService } from '../../../services/branchAuthService';
 
 export default function BranchDashboard() {
   const router = useRouter();

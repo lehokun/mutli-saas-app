@@ -12,44 +12,69 @@ export function useAdminDashboard() {
   const [currentMenu, setCurrentMenu] = useState('home');
   const [loading, setLoading] = useState(true);
   
+  // 🔥 STATE BARU UNTUK NOTIFIKASI & MODAL KONFIRMASI (Mencegah Focus Stealing dari alert bawaan)
+  const [notification, setNotification] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  const notify = useCallback((msg, type = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3500);
+  }, []);
+
+  const requestConfirm = (message) => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        message,
+        onConfirm: () => { setConfirmDialog(null); resolve(true); },
+        onCancel: () => { setConfirmDialog(null); resolve(false); }
+      });
+    });
+  };
+
   // Data States
   const [admin, setAdmin] = useState(null);
   const [branches, setBranches] = useState([]);
   const [stocks, setStocks] = useState([]);
   
-  // 🔥 MENGGUNAKAN RAW STATE UNTUK DATA MENTAH DARI DATABASE
   const [groupedExpensesRaw, setGroupedExpensesRaw] = useState({});
   const [groupedSalesHistoryRaw, setGroupedSalesHistoryRaw] = useState({});
   
-  // Filter States (Default ke 'ALL')
+  // Filter States
   const [filterBranchId, setFilterBranchId] = useState('ALL');
   const [filterTimeframe, setFilterTimeframe] = useState('ALL');
-  
-  // 🔥 STATE BARU UNTUK RENTANG HARI GRAFIK (Default 7, Max 30)
   const [chartDays, setChartDays] = useState(7);
 
-  // Forms States
+  // Forms States - Branch
   const [branchName, setBranchName] = useState('');
   const [generatedToken, setGeneratedToken] = useState('');
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editingBranchName, setEditingBranchName] = useState('');
 
+  // Forms States - Stock (Create)
   const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [hpp, setHpp] = useState('');
   const [hargaJual, setHargaJual] = useState('');
   const [expiredDate, setExpiredDate] = useState('');
 
+  // Forms States - Stock (Update/Edit)
+  const [editingStockId, setEditingStockId] = useState(null);
+  const [editStockName, setEditStockName] = useState('');
+  const [editStockQty, setEditStockQty] = useState('');
+  const [editStockHpp, setEditStockHpp] = useState('');
+  const [editStockHargaJual, setEditStockHargaJual] = useState('');
+  const [editStockExpiredDate, setEditStockExpiredDate] = useState('');
+
+  // Forms States - Stock Actions
   const [selectedExistingStockId, setSelectedExistingStockId] = useState('');
   const [additionalStockQty, setAdditionalStockQty] = useState('');
-
   const [selectedStockId, setSelectedStockId] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [transferQty, setTransferQty] = useState('');
-
   const [closingStockId, setClosingStockId] = useState('');
   const [closingSoldQty, setClosingSoldQty] = useState('');
 
+  // Forms States - Profile
   const [profileName, setProfileName] = useState('');
   const [profileAddress, setProfileAddress] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -126,7 +151,6 @@ export function useAdminDashboard() {
     return true;
   };
 
-  // 1. Ekstrak & Filter Data Mentah Menjadi Flat Array
   const filteredStocks = useMemo(() => stocks.filter(s => isBranchMatch(s.branch_id, filterBranchId)), [stocks, filterBranchId]);
   
   const filteredSalesHistoryFlat = useMemo(() => {
@@ -139,7 +163,6 @@ export function useAdminDashboard() {
     return flatExp.filter(e => isBranchMatch(e.branch_id, filterBranchId) && isWithinTimeframe(e.created_at, filterTimeframe));
   }, [groupedExpensesRaw, filterBranchId, filterTimeframe]);
 
-  // 2. Grouping Ulang Data yang Sudah Bersih (Untuk UI Tutup Buku & Expenses)
   const groupedSalesHistory = useMemo(() => {
     return filteredSalesHistoryFlat.reduce((acc, log) => {
       const date = new Date(log.created_at).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -158,7 +181,6 @@ export function useAdminDashboard() {
     }, {});
   }, [filteredExpensesFlat]);
 
-  // 3. Kalkulasi Metrik
   const totalOmset = filteredSalesHistoryFlat.reduce((sum, log) => sum + log.total_price, 0);
   const totalPengeluaran = filteredExpensesFlat.reduce((sum, exp) => sum + exp.amount, 0);
   
@@ -195,19 +217,15 @@ export function useAdminDashboard() {
           return sum;
         }, 0);
       }
-      
       data.push({ day: shortDay, dateStr, omset: dailyOmset, pengeluaran: dailyPengeluaran });
     }
     return data;
   }, [groupedSalesHistoryRaw, groupedExpensesRaw, filterBranchId, chartDays]);
 
-  // --- Handlers: Branch Management (DIPERBAIKI) ---
-  
-  // Fungsi Helper untuk Cek Duplikasi Nama Cabang (Case Insensitive)
+  // --- Handlers: Branch Management ---
   const isBranchNameExist = (nameToCheck, excludeId = null) => {
     const cleanName = nameToCheck.trim().toLowerCase();
     return branches.some(branch => {
-      // Jika excludeId ada, lewati pengecekan untuk ID tersebut (berguna saat Edit)
       if (excludeId && branch.id === excludeId) return false;
       return branch.name.trim().toLowerCase() === cleanName;
     });
@@ -215,89 +233,76 @@ export function useAdminDashboard() {
 
   const handleAddBranch = async (e) => {
     e.preventDefault();
-    if (!branchName.trim()) return alert("Nama cabang tidak boleh kosong!");
-    
-    // 🔥 VALIDASI: Cegah Nama Ganda (KADAKA == kadaka)
-    if (isBranchNameExist(branchName)) {
-      return alert(`Gagal! Nama cabang "${branchName}" sudah terdaftar di sistem Anda.`);
-    }
+    if (!branchName.trim()) return notify("Nama cabang tidak boleh kosong!", "error");
+    if (isBranchNameExist(branchName)) return notify(`Gagal! Nama cabang "${branchName}" sudah terdaftar.`, "error");
 
     const tokenBaru = Math.random().toString(36).substring(2, 10).toUpperCase();
     try {
       const newBranch = await adminService.addBranch(branchName, admin.id, tokenBaru);
       setGeneratedToken(tokenBaru);
       setBranchName('');
-      setBranches(prev => [...prev, newBranch]);
-    } catch (error) { alert("Gagal menambah cabang: " + error.message); }
+      
+      // 🔥 PERBAIKAN BUG CABANG: Parsing return dari Supabase dengan benar agar langsung tampil
+      const branchData = newBranch?.data ? newBranch.data[0] : (Array.isArray(newBranch) ? newBranch[0] : newBranch);
+      
+      if (branchData && branchData.id) {
+        setBranches(prev => [...prev, branchData]);
+        notify("Cabang berhasil didaftarkan!", "success");
+      } else {
+        // Fallback panggil ulang data jika data branchData gagal diparsing
+        loadDashboardData();
+        notify("Cabang berhasil didaftarkan!", "success");
+      }
+    } catch (error) { notify("Gagal menambah cabang: " + error.message, "error"); }
   };
 
   const handleUpdateBranch = async (id) => {
-    if (!editingBranchName.trim()) return alert("Nama tidak boleh kosong!");
-    
-    // 🔥 VALIDASI: Cegah Edit ke Nama yang Sudah Ada (Kecuali namanya sendiri)
-    if (isBranchNameExist(editingBranchName, id)) {
-      return alert(`Gagal! Nama cabang "${editingBranchName}" sudah dipakai oleh cabang lain.`);
-    }
+    if (!editingBranchName.trim()) return notify("Nama tidak boleh kosong!", "error");
+    if (isBranchNameExist(editingBranchName, id)) return notify(`Gagal! Nama cabang "${editingBranchName}" sudah dipakai.`, "error");
 
     try {
-      // 🔥 PERBAIKAN: Eksekusi update secara langsung ke Supabase agar pasti tersimpan di database
-      const { error } = await supabase
-        .from('branches')
-        .update({ name: editingBranchName })
-        .eq('id', id)
-        .eq('admin_id', admin.id);
-        
+      const { error } = await supabase.from('branches').update({ name: editingBranchName }).eq('id', id).eq('admin_id', admin.id);
       if (error) throw error;
-
-      // Update Tampilan Layar (UI)
       setBranches(prev => prev.map(b => b.id === id ? { ...b, name: editingBranchName } : b));
       setEditingBranchId(null);
-    } catch (error) { 
-      alert("Gagal mengupdate nama cabang: " + error.message); 
-    }
+      notify("Nama cabang berhasil diupdate!", "success");
+    } catch (error) { notify("Gagal mengupdate nama cabang: " + error.message, "error"); }
   };
 
   const handleDeleteBranch = async (id) => {
-    if (!window.confirm("PENGHAPUSAN PERMANEN!\n\nYakin ingin menghapus cabang ini? Seluruh data laporan, stok, dan nota cabang ini akan hilang selamanya.")) return;
-    
+    const confirmed = await requestConfirm("PENGHAPUSAN PERMANEN!\n\nYakin ingin menghapus cabang ini? Seluruh data laporan, stok, dan nota cabang ini akan hilang selamanya.");
+    if (!confirmed) return;
+
     try {
-      // 🔥 PERBAIKAN: Gunakan pemanggilan langsung ke Supabase untuk memastikan penghapusan tereksekusi
       const { error } = await supabase.from('branches').delete().eq('id', id).eq('admin_id', admin.id);
-      
       if (error) {
-        // Jika gagal karena Foreign Key constraint (stok/laporan masih ada), tangkap errornya
-        if (error.message.includes('foreign key')) {
-          throw new Error('Cabang tidak dapat dihapus karena masih memiliki riwayat transaksi atau sisa stok. Harap kosongkan atau transfer stok terlebih dahulu.');
-        }
+        if (error.message.includes('foreign key')) throw new Error('Cabang tidak dapat dihapus karena masih memiliki riwayat transaksi atau sisa stok.');
         throw error;
       }
-      
-      // Jika berhasil di database, hapus dari tampilan UI
       setBranches(prev => prev.filter(b => b.id !== id));
-      alert("Cabang berhasil dihapus secara permanen.");
-      
-      // Refresh dasbor untuk membersihkan tabel stok dan laporan dari cabang yang dihapus
+      notify("Cabang berhasil dihapus secara permanen.", "success");
       loadDashboardData();
-    } catch (error) { 
-      alert("Gagal menghapus cabang: " + error.message); 
-    }
+    } catch (error) { notify("Gagal menghapus cabang: " + error.message, "error"); }
   };
 
   const handleToggleBranchStatus = async (id, currentStatus) => {
     try {
       await adminService.updateBranch(id, { is_active: !currentStatus });
       setBranches(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b));
-    } catch (error) { alert("Gagal merubah status cabang: " + error.message); }
+      notify(`Cabang ${!currentStatus ? 'diaktifkan' : 'dinonaktifkan'}.`, "success");
+    } catch (error) { notify("Gagal merubah status cabang: " + error.message, "error"); }
   };
 
   const handleRegenerateToken = async (id) => {
-    if (!window.confirm("Yakin ingin mengganti token? Staf cabang akan langsung ter-logout (keluar otomatis).")) return;
+    const confirmed = await requestConfirm("Yakin ingin mengganti token?\nStaf cabang akan langsung ter-logout (keluar otomatis).");
+    if (!confirmed) return;
+
     const tokenBaru = Math.random().toString(36).substring(2, 10).toUpperCase();
     try {
       await adminService.updateBranch(id, { token: tokenBaru });
       setBranches(prev => prev.map(b => b.id === id ? { ...b, token: tokenBaru } : b));
-      alert(`Token Baru: ${tokenBaru}\n\nSilakan berikan ke karyawan Anda.`);
-    } catch (error) { alert("Gagal membuat token baru: " + error.message); }
+      notify(`Token Baru dibuat: ${tokenBaru}`, "success");
+    } catch (error) { notify("Gagal membuat token baru: " + error.message, "error"); }
   };
 
   // --- Handlers: Stock & Report ---
@@ -309,7 +314,7 @@ export function useAdminDashboard() {
       const cost = parseInt(hpp);
       const price = parseInt(hargaJual);
 
-      if (!cleanName || isNaN(qty) || isNaN(cost) || isNaN(price)) throw new Error("Data tidak valid!");
+      if (!cleanName || isNaN(qty) || isNaN(cost) || isNaN(price)) throw new Error("Mohon periksa form. Pastikan nilai angka benar.");
 
       const { data: existingProduct, error: checkError } = await supabase.from('stocks').select('id').ilike('item_name', cleanName).is('branch_id', null).eq('admin_id', admin.id).maybeSingle();
       if (checkError) throw checkError;
@@ -320,47 +325,149 @@ export function useAdminDashboard() {
       });
       if (error) throw error;
       
-      alert("Produk berhasil didaftarkan!");
+      notify("Produk berhasil didaftarkan!", "success");
       setItemName(''); setQuantity(''); setHpp(''); setHargaJual(''); setExpiredDate('');
       loadDashboardData();
-    } catch (error) { alert("Gagal: " + error.message); }
+    } catch (error) { notify("Gagal: " + error.message, "error"); }
+  };
+
+  const handleUpdateStock = async (id) => {
+    try {
+      const cleanName = editStockName.trim();
+      const qty = parseInt(editStockQty);
+      const cost = parseInt(editStockHpp);
+      const price = parseInt(editStockHargaJual);
+
+      if (!cleanName || isNaN(qty) || isNaN(cost) || isNaN(price)) {
+        throw new Error("Mohon periksa kembali form, pastikan angka valid!");
+      }
+
+      const { error } = await supabase
+        .from('stocks')
+        .update({
+          item_name: cleanName,
+          quantity: qty,
+          hpp: cost,
+          harga_jual: price,
+          expired_at: editStockExpiredDate || null
+        })
+        .eq('id', id)
+        .eq('admin_id', admin.id);
+
+      if (error) throw error;
+
+      setStocks(prev => prev.map(s => s.id === id ? {
+        ...s,
+        item_name: cleanName,
+        quantity: qty,
+        hpp: cost,
+        harga_jual: price,
+        expired_at: editStockExpiredDate || null
+      } : s));
+
+      setEditingStockId(null);
+      notify("Data produk berhasil diperbarui!", "success");
+    } catch (error) {
+      notify("Gagal mengupdate produk: " + error.message, "error");
+    }
+  };
+
+  const handleDeleteStock = async (id) => {
+    const confirmed = await requestConfirm("Yakin ingin menghapus produk ini? \n\nProduk yang sudah memiliki riwayat tidak bisa dihapus untuk menjaga integritas laporan.");
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from('stocks')
+        .delete()
+        .eq('id', id)
+        .eq('admin_id', admin.id);
+
+      if (error) {
+        if (error.message.includes('foreign key') || error.message.includes('violates foreign key constraint')) {
+          throw new Error('Produk masih terhubung dengan riwayat transaksi.');
+        }
+        throw error;
+      }
+      setStocks(prev => prev.filter(s => s.id !== id));
+      notify("Produk berhasil dihapus dari inventaris.", "success");
+    } catch (error) {
+      notify("Gagal menghapus produk: " + error.message, "error");
+    }
   };
 
   const handleAddExistingStock = async (e) => {
     e.preventDefault();
-    if (!selectedExistingStockId || !additionalStockQty) return alert("Pilih produk dan isi jumlah!");
+    if (!selectedExistingStockId || !additionalStockQty) return notify("Pilih produk dan isi jumlah!", "error");
     try {
       const stock = stocks.find(s => s.id.toString() === selectedExistingStockId);
       await adminService.addExistingStockQty(selectedExistingStockId, stock.quantity, additionalStockQty);
-      alert("Stok berhasil ditambahkan!");
+      notify("Stok berhasil ditambahkan!", "success");
       setSelectedExistingStockId(''); setAdditionalStockQty('');
       loadDashboardData();
-    } catch (error) { alert("Gagal: " + error.message); }
+    } catch (error) { notify("Gagal: " + error.message, "error"); }
   };
 
   const handleTransferStock = async (e) => {
     e.preventDefault();
     const qty = parseInt(transferQty);
-    if (!selectedStockId || !selectedBranchId || isNaN(qty) || qty <= 0) return alert("Isi form dengan benar!");
+    if (!selectedStockId || !selectedBranchId || isNaN(qty) || qty <= 0) return notify("Isi form dengan benar!", "error");
     const targetStock = stocks.find(s => s.id.toString() === selectedStockId);
-    if (qty > targetStock.quantity) return alert("Sisa stok pusat tidak cukup!");
+    if (qty > targetStock.quantity) return notify("Sisa stok pusat tidak cukup!", "error");
     
     try {
       const existStock = stocks.find(s => s.branch_id === selectedBranchId && s.item_name === targetStock.item_name);
-      await adminService.executeStockTransfer(targetStock, selectedBranchId, qty, existStock, admin.id);
-      alert("Distribusi berhasil!");
+      
+      // 🔥 PERBAIKAN BUG: Eksekusi transfer langsung dengan Supabase untuk memastikan expired_at terbawa
+      
+      // 1. Kurangi stok di Gudang Pusat
+      const { error: errPusat } = await supabase
+        .from('stocks')
+        .update({ quantity: targetStock.quantity - qty })
+        .eq('id', targetStock.id);
+      
+      if (errPusat) throw errPusat;
+
+      // 2. Tambah/Buat stok di Cabang Penerima
+      if (existStock) {
+        // Jika produk sudah ada di cabang, tambah qty & perbarui masa kedaluwarsa
+        const { error: errCabang } = await supabase
+          .from('stocks')
+          .update({ 
+            quantity: existStock.quantity + qty,
+            expired_at: targetStock.expired_at || existStock.expired_at // Bawa expired_at pusat
+          })
+          .eq('id', existStock.id);
+        if (errCabang) throw errCabang;
+      } else {
+        // Jika produk belum ada di cabang, buat produk baru dengan expired_at yang sama
+        const { error: errNew } = await supabase
+          .from('stocks')
+          .insert({
+            item_name: targetStock.item_name,
+            quantity: qty,
+            hpp: targetStock.hpp,
+            harga_jual: targetStock.harga_jual,
+            admin_id: admin.id,
+            branch_id: selectedBranchId,
+            expired_at: targetStock.expired_at // 🔥 MEMASTIKAN MASA EXPIRED IKUT PINDAH LOKASI
+          });
+        if (errNew) throw errNew;
+      }
+
+      notify("Distribusi stok berhasil dipindahkan!", "success");
       setSelectedStockId(''); setSelectedBranchId(''); setTransferQty('');
       loadDashboardData();
-    } catch (error) { alert("Gagal: " + error.message); }
+    } catch (error) { notify("Gagal transfer: " + error.message, "error"); }
   };
 
   const handleClosingReport = async (e) => {
     e.preventDefault();
     const soldQty = parseInt(closingSoldQty);
-    if (!closingStockId || isNaN(soldQty) || soldQty <= 0) return alert("Isi jumlah terjual dengan benar!");
+    if (!closingStockId || isNaN(soldQty) || soldQty <= 0) return notify("Isi jumlah terjual dengan benar!", "error");
     
     const targetStock = stocks.find(s => s.id.toString() === closingStockId);
-    if (soldQty > targetStock.quantity) return alert("Penjualan melebihi sisa stok!");
+    if (soldQty > targetStock.quantity) return notify("Penjualan melebihi sisa stok!", "error");
 
     try {
       const { calculatedRemainingQty, calculatedSoldQty } = await adminService.executeClosingReport(targetStock, soldQty);
@@ -379,29 +486,28 @@ export function useAdminDashboard() {
       
       setClosingStockId(''); setClosingSoldQty('');
       setGroupedSalesHistoryRaw(updatedHistory);
-      alert('Tutup buku harian sukses!');
-    } catch (err) { alert("Gagal: " + err.message); }
+      notify('Tutup buku harian sukses!', "success");
+    } catch (err) { notify("Gagal: " + err.message, "error"); }
   };
 
-  // --- Handlers: Settings & Auth ---
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     try {
       const { error } = await supabase.auth.updateUser({ data: { business_name: profileName, address: profileAddress } });
       if (error) throw error;
-      alert('Profil berhasil diperbarui!');
-    } catch (err) { alert('Gagal memperbarui profil: ' + err.message); }
+      notify('Profil berhasil diperbarui!', "success");
+    } catch (err) { notify('Gagal memperbarui profil: ' + err.message, "error"); }
   };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 6) return alert('Kata sandi minimal 6 karakter');
+    if (newPassword.length < 6) return notify('Kata sandi minimal 6 karakter', "error");
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      alert('Kata sandi berhasil diubah! Silakan gunakan sandi baru untuk sesi berikutnya.');
+      notify('Kata sandi berhasil diubah!', "success");
       setNewPassword('');
-    } catch (err) { alert('Gagal mengubah sandi: ' + err.message); }
+    } catch (err) { notify('Gagal mengubah sandi: ' + err.message, "error"); }
   };
 
   const handleLogout = async () => {
@@ -410,10 +516,11 @@ export function useAdminDashboard() {
   };
 
   return {
+    router, // 🔥 PERBAIKAN: Export router dikembalikan agar tombol Portal Cabang tidak crash
     darkMode, setDarkMode, isSidebarOpen, setIsSidebarOpen, currentMenu, setCurrentMenu, loading,
     admin, branches, stocks, filterBranchId, setFilterBranchId, filterTimeframe, setFilterTimeframe,
     filteredStocks, totalOmset, totalPengeluaran, labaBersih, 
-    chartData, chartDays, setChartDays, router, // Export Chart State Baru
+    chartData, chartDays, setChartDays,
     groupedExpenses, groupedSalesHistory, filteredExpenses: filteredExpensesFlat,
     formatRupiah, getUserInitials, getUserDisplayName,
     branchName, setBranchName, generatedToken, itemName, setItemName, quantity, setQuantity,
@@ -423,8 +530,20 @@ export function useAdminDashboard() {
     setClosingStockId, closingSoldQty, setClosingSoldQty, editingBranchId, setEditingBranchId, 
     editingBranchName, setEditingBranchName, profileName, setProfileName, profileAddress, setProfileAddress, 
     newPassword, setNewPassword, expiredDate, setExpiredDate, totalKerugianExpired,
+    
+    editingStockId, setEditingStockId,
+    editStockName, setEditStockName,
+    editStockQty, setEditStockQty,
+    editStockHpp, setEditStockHpp,
+    editStockHargaJual, setEditStockHargaJual,
+    editStockExpiredDate, setEditStockExpiredDate,
+    handleUpdateStock, handleDeleteStock,
+
     handleAddBranch, handleDeleteBranch, handleUpdateBranch, handleToggleBranchStatus, handleRegenerateToken,
     handleAddStock, handleAddExistingStock, handleTransferStock, handleClosingReport, handleLogout,
-    handleUpdateProfile, handleChangePassword
+    handleUpdateProfile, handleChangePassword,
+    
+    // 🔥 Export State UI tambahan untuk dirender di page.jsx
+    notification, confirmDialog
   };
 }
